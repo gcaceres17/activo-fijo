@@ -1,0 +1,63 @@
+version: "3.9"
+
+services:
+  # ── PostgreSQL 15 ──────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: activo_fijo_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       activo_fijo_db
+      POSTGRES_USER:     activo_fijo
+      POSTGRES_PASSWORD: activo_fijo_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Los archivos en init/ se ejecutan en orden alfabético al crear la DB
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U activo_fijo -d activo_fijo_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── FastAPI Backend ─────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: activo_fijo_api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL:    postgresql://activo_fijo:activo_fijo_pass@postgres:5432/activo_fijo_db
+      JWT_SECRET_KEY:  ${JWT_SECRET_KEY:-super-secret-key-change-in-production-32chars}
+      JWT_EXPIRE_HOURS: "8"
+    ports:
+      - "8000:8000"
+    volumes:
+      - backend_storage:/app/storage
+      # Hot reload en dev — comentar en producción
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ── Next.js Frontend ───────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: activo_fijo_web
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  backend_storage:

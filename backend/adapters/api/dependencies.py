@@ -1,0 +1,69 @@
+"""Inyección de dependencias — ensambla use cases con sus repos."""
+from __future__ import annotations
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
+from application.use_cases import ActivoUseCases, AsignacionUseCases, MantenimientoUseCases
+from infrastructure.database.connection import get_pool
+from infrastructure.repositories import (
+    PostgreSQLActivoRepository, PostgreSQLAsignacionRepository,
+    PostgreSQLMantenimientoRepository, PostgreSQLAuditLogRepository,
+    PostgreSQLCategoriaRepository, PostgreSQLCentroCostoRepository,
+)
+from infrastructure.external.qr_service import QRCodeService, LocalStorageAdapter
+from domain.entities import Usuario
+from uuid import UUID
+
+security = HTTPBearer()
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> Usuario:
+    from infrastructure.auth.jwt import decode_token
+    try:
+        payload = decode_token(credentials.credentials)
+        return Usuario(
+            id=payload["user_id"], tenant_id=payload["tenant_id"],
+            email=payload["email"], nombre_completo=payload.get("nombre", ""),
+            rol=payload.get("rol", "operador"),
+        )
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="Token inválido o expirado",
+                            headers={"WWW-Authenticate": "Bearer"})
+
+
+async def get_activo_uc() -> ActivoUseCases:
+    pool = await get_pool()
+    return ActivoUseCases(
+        activo_repo=PostgreSQLActivoRepository(pool),
+        categoria_repo=PostgreSQLCategoriaRepository(pool),
+        centro_costo_repo=PostgreSQLCentroCostoRepository(pool),
+        audit_repo=PostgreSQLAuditLogRepository(pool),
+        qr_service=QRCodeService(),
+        storage=LocalStorageAdapter(),
+    )
+
+
+async def get_asignacion_uc() -> AsignacionUseCases:
+    pool = await get_pool()
+    return AsignacionUseCases(
+        asignacion_repo=PostgreSQLAsignacionRepository(pool),
+        activo_repo=PostgreSQLActivoRepository(pool),
+        audit_repo=PostgreSQLAuditLogRepository(pool),
+    )
+
+
+async def get_asignacion_repo():
+    pool = await get_pool()
+    return PostgreSQLAsignacionRepository(pool)
+
+
+async def get_mantenimiento_uc() -> MantenimientoUseCases:
+    pool = await get_pool()
+    return MantenimientoUseCases(
+        mnt_repo=PostgreSQLMantenimientoRepository(pool),
+        activo_repo=PostgreSQLActivoRepository(pool),
+        audit_repo=PostgreSQLAuditLogRepository(pool),
+    )

@@ -1,0 +1,16 @@
+version: "3.9"
+
+# Uso: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+# Levanta solo PostgreSQL + Backend con hot reload.
+# El frontend corre con: cd frontend && npm run dev
+
+services:
+  frontend:
+    # En dev el frontend corre fuera de Docker para mejor DX
+    profiles: ["skip"]
+
+  backend:
+    volumes:
+      - ./backend:/app
+      - backend_storage:/app/storage
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload

@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* CLT brand colors */
+  --clt-violet:   #6874B5;
+  --clt-blue:     #65A0D3;
+  --clt-cyan:     #6CBEDA;
+  --clt-red:      #E53E3E;
+  --clt-ink:      #2A3645;
+  --clt-gradient: linear-gradient(135deg, #6874B5 0%, #65A0D3 50%, #6CBEDA 100%);
+  --clt-ease:     cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Font (next/font injects --font-montserrat at runtime) */
+  --clt-font-display: var(--font-montserrat), 'Montserrat', system-ui, -apple-system, sans-serif;
+  --clt-font-body:    var(--font-montserrat), 'Montserrat', system-ui, -apple-system, sans-serif;
+  --clt-font-mono:    ui-monospace, 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+
+  /* Theme tokens — dark default */
+  --t-bg-app:    #0d1520;
+  --t-bg-card:   rgba(255,255,255,0.04);
+  --t-bg-card3:  rgba(255,255,255,0.02);
+  --t-bg-input:  rgba(255,255,255,0.05);
+  --t-bg-hover:  rgba(255,255,255,0.03);
+  --t-border:    rgba(255,255,255,0.07);
+  --t-border3:   rgba(255,255,255,0.04);
+  --t-text-1:    rgba(255,255,255,0.90);
+  --t-text-2:    rgba(255,255,255,0.75);
+  --t-text-3:    rgba(255,255,255,0.55);
+  --t-text-4:    rgba(255,255,255,0.40);
+  --t-text-5:    rgba(255,255,255,0.30);
+  --t-text-6:    rgba(255,255,255,0.25);
+  --t-text-white: #ffffff;
+
+  /* Additional tokens used by components */
+  --t-bg-card2:      rgba(255,255,255,0.06);
+  --t-bg-th:         rgba(255,255,255,0.02);
+  --t-border2:       rgba(255,255,255,0.06);
+  --t-border-input:  rgba(255,255,255,0.10);
+  --t-modal-bg:      #151f2e;
+}
+
+.theme-light {
+  --t-bg-app:    #F0F2F5;
+  --t-bg-card:   #ffffff;
+  --t-bg-card3:  #f8f9fa;
+  --t-bg-input:  rgba(0,0,0,0.04);
+  --t-bg-hover:  rgba(0,0,0,0.02);
+  --t-border:    rgba(0,0,0,0.08);
+  --t-border3:   rgba(0,0,0,0.05);
+  --t-text-1:    rgba(26,37,53,0.92);
+  --t-text-2:    rgba(26,37,53,0.75);
+  --t-text-3:    rgba(26,37,53,0.55);
+  --t-text-4:    rgba(26,37,53,0.45);
+  --t-text-5:    rgba(26,37,53,0.35);
+  --t-text-6:    rgba(26,37,53,0.25);
+  --t-text-white: #1a2535;
+  --t-bg-card2:      rgba(0,0,0,0.03);
+  --t-bg-th:         rgba(0,0,0,0.03);
+  --t-border2:       rgba(0,0,0,0.06);
+  --t-border-input:  rgba(0,0,0,0.12);
+  --t-modal-bg:      #ffffff;
+}
+
+@layer base {
+  body {
+    @apply bg-[#0d1520] text-white antialiased;
+    font-family: var(--clt-font-body);
+  }
+  .theme-light body { @apply bg-[#F0F2F5] text-gray-900; }
+}
+
+@layer utilities {
+  .scrollbar-thin::-webkit-scrollbar { width: 4px; height: 4px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+}
