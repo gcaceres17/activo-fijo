@@ -19,12 +19,14 @@ const TAB_LABELS: Record<Tab, string> = {
   mant: 'Mantenimiento', docs: 'Documentos', qr: 'Código QR',
 }
 
-function ModalDetalle({ activo, grupos, sucursales, onClose, onEdit }: {
-  activo: Activo; grupos: Grupo[]; sucursales: Sucursal[]; onClose: () => void; onEdit: () => void
+function ModalDetalle({ activo, grupos, sucursales, onClose, onEdit, onDarDeBaja }: {
+  activo: Activo; grupos: Grupo[]; sucursales: Sucursal[]
+  onClose: () => void; onEdit: () => void; onDarDeBaja: () => void
 }) {
   const [tab, setTab] = useState<Tab>('info')
   const [asigs, setAsigs] = useState<Asignacion[] | null>(null)
   const [mants, setMants] = useState<Mantenimiento[] | null>(null)
+  const [bajaLoading, setBajaLoading] = useState(false)
 
   const grupo = grupos.find(g => g.id === activo.grupo_id)
   const sucursal = sucursales.find(s => s.id === activo.sucursal_id)
@@ -259,7 +261,16 @@ function ModalDetalle({ activo, grupos, sucursales, onClose, onEdit }: {
         <Btn icon={<svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><rect x={3} y={3} width={18} height={18} rx={2} ry={2} /><path d="M8 12h8" /><path d="M12 8v8" /></svg>} variant="ghost" small onClick={() => setTab('qr')}>Ver QR</Btn>
         <Btn icon={<svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><polyline points="6,9 6,2 18,2 18,9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x={6} y={14} width={12} height={8} /></svg>} variant="ghost" small>Imprimir ficha</Btn>
         {activo.estado !== 'dado_de_baja' && (
-          <Btn icon={<svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M21 8v13H3V8" /><path d="M1 3h22v5H1z" /><path d="M10 12h4" /></svg>} variant="danger" small>Dar de baja</Btn>
+          <Btn icon={<svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M21 8v13H3V8" /><path d="M1 3h22v5H1z" /><path d="M10 12h4" /></svg>} variant="danger" small
+            disabled={bajaLoading}
+            onClick={async () => {
+              if (!confirm(`¿Dar de baja "${activo.nombre}"? Esta acción no se puede deshacer.`)) return
+              setBajaLoading(true)
+              try { await api.delete(`/v1/activos/${activo.id}`); onDarDeBaja() }
+              catch (e: unknown) { alert(e instanceof Error ? e.message : 'Error al dar de baja'); setBajaLoading(false) }
+            }}>
+            {bajaLoading ? 'Procesando…' : 'Dar de baja'}
+          </Btn>
         )}
         <div style={{ flex: 1 }} />
         <Btn variant="ghost" small onClick={onClose}>Cerrar</Btn>
@@ -438,6 +449,7 @@ export default function ActivosPage() {
           sucursales={sucursales}
           onClose={() => setDetalle(null)}
           onEdit={() => { router.push(`/activos/${detalle.id}`); setDetalle(null) }}
+          onDarDeBaja={() => { setDetalle(null); fetchActivos() }}
         />
       )}
     </div>

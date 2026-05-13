@@ -14,19 +14,48 @@ export default function MantenimientoPage() {
   const [q, setQ] = useState('')
   const [tipo, setTipo] = useState('')
   const [showModal, setShowModal] = useState(false)
-  const [form, setForm] = useState({ activo_id: '', tipo: '', tecnico: '', fecha_inicio: '', costo: '', descripcion: '' })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [form, setForm] = useState({ activo_id: '', tipo: '', tecnico: '', fecha_inicio: new Date().toISOString().split('T')[0], costo: '', descripcion: '' })
 
   const set = (k: string) => (v: string) => setForm(f => ({ ...f, [k]: v }))
 
-  useEffect(() => {
-    Promise.allSettled([
+  async function load() {
+    const [mR, actR] = await Promise.allSettled([
       api.get<{ items: Mantenimiento[] }>('/v1/mantenimientos?page_size=100'),
       api.get<PaginatedActivos>('/v1/activos?page_size=100'),
-    ]).then(([mR, actR]) => {
-      if (mR.status === 'fulfilled') setMantenimientos(mR.value.items ?? [])
-      if (actR.status === 'fulfilled') setActivos(actR.value.items ?? [])
-    }).finally(() => setLoading(false))
-  }, [])
+    ])
+    if (mR.status === 'fulfilled') setMantenimientos(mR.value.items ?? [])
+    if (actR.status === 'fulfilled') setActivos(actR.value.items ?? [])
+    setLoading(false)
+  }
+
+  useEffect(() => { load() }, [])
+
+  async function save() {
+    if (!form.activo_id || !form.tipo || !form.tecnico || !form.descripcion) {
+      setError('Activo, tipo, técnico y descripción son obligatorios.')
+      return
+    }
+    setSaving(true); setError('')
+    try {
+      await api.post('/v1/mantenimientos', {
+        activo_id: form.activo_id,
+        tipo: form.tipo,
+        tecnico: form.tecnico,
+        descripcion: form.descripcion,
+        fecha_inicio: form.fecha_inicio || new Date().toISOString().split('T')[0],
+        costo: form.costo ? Number(form.costo) : 0,
+      })
+      setShowModal(false)
+      setForm({ activo_id: '', tipo: '', tecnico: '', fecha_inicio: new Date().toISOString().split('T')[0], costo: '', descripcion: '' })
+      await load()
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Error al crear la orden')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const filtered = mantenimientos.filter(m => {
     const sq = q.toLowerCase()
@@ -92,7 +121,7 @@ export default function MantenimientoPage() {
             </FormField>
             <FormField label="Tipo" required>
               <SelectFieldDark value={form.tipo} onChange={set('tipo')}
-                options={[{ value: '', label: 'Tipo' }, { value: 'Preventivo', label: 'Preventivo' }, { value: 'Correctivo', label: 'Correctivo' }, { value: 'Predictivo', label: 'Predictivo' }]} />
+                options={[{ value: '', label: 'Tipo' }, { value: 'preventivo', label: 'Preventivo' }, { value: 'correctivo', label: 'Correctivo' }, { value: 'predictivo', label: 'Predictivo' }]} />
             </FormField>
             <FormField label="Técnico">
               <InputDark value={form.tecnico} onChange={set('tecnico')} placeholder="Nombre del técnico" />
@@ -108,9 +137,13 @@ export default function MantenimientoPage() {
                 style={{ background: 'var(--t-bg-input)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--t-text-2)', fontFamily: 'var(--clt-font-body)', fontSize: 13, padding: '10px 12px', width: '100%', resize: 'vertical', outline: 'none', boxSizing: 'border-box' }} />
             </FormField>
           </div>
+          {error && <div style={{ marginTop: 12, padding: '8px 12px', background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', color: '#F87171', fontSize: 12, fontFamily: FONT, fontWeight: 700 }}>{error}</div>}
           <div style={{ display: 'flex', gap: 8, marginTop: 20, justifyContent: 'flex-end' }}>
-            <Btn variant="ghost" small onClick={() => setShowModal(false)}>Cancelar</Btn>
-            <Btn variant="accent" small icon={<Save size={14} />} onClick={() => setShowModal(false)}>Crear orden</Btn>
+            <Btn variant="ghost" small onClick={() => { setShowModal(false); setError('') }}>Cancelar</Btn>
+            <Btn variant="accent" small icon={<Save size={14} />} onClick={save}
+              disabled={saving || !form.activo_id || !form.tipo || !form.tecnico || !form.descripcion}>
+              {saving ? 'Guardando…' : 'Crear orden'}
+            </Btn>
           </div>
         </Modal>
       )}

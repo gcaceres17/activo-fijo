@@ -61,7 +61,15 @@ export default function AsignacionesPage() {
     }},
     { key: 'fecha_inicio', label: 'Desde', render: v => <span style={{ fontSize: 12, color: 'var(--t-text-3)' }}>{fmtDate(String(v))}</span> },
     { key: 'vigente', label: 'Estado', render: v => <Badge estado={v ? 'activo' : 'dado_de_baja'} /> },
-    { key: 'vigente', label: '', render: v => v ? <Btn variant="ghost" small onClick={() => {}}>Devolver</Btn> : null },
+    { key: 'vigente', label: '', render: (v, r) => v ? (
+      <Btn variant="ghost" small onClick={async () => {
+        if (!confirm('¿Confirmar devolución del activo?')) return
+        try {
+          await api.patch(`/v1/asignaciones/${String((r as unknown as Asignacion).id)}/baja`)
+          await load()
+        } catch (e: unknown) { alert(e instanceof Error ? e.message : 'Error') }
+      }}>Devolver</Btn>
+    ) : null },
   ]
 
   async function save() {

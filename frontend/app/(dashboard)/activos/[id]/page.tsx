@@ -19,6 +19,7 @@ export default function ActivoDetailPage() {
   const [mantenimientos, setMantenimientos] = useState<Mantenimiento[]>([])
   const [tab, setTab] = useState<typeof TABS[number]>('info')
   const [loading, setLoading] = useState(true)
+  const [bajaLoading, setBajaLoading] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -251,7 +252,20 @@ export default function ActivoDetailPage() {
           </Link>
           <Btn variant="ghost" small icon={<Printer size={12} />}>Imprimir ficha</Btn>
           {activo.estado !== 'dado_de_baja' && (
-            <Btn variant="danger" small icon={<Archive size={12} />}>Dar de baja</Btn>
+            <Btn variant="danger" small icon={<Archive size={12} />} disabled={bajaLoading}
+              onClick={async () => {
+                if (!confirm(`¿Dar de baja "${activo.nombre}"? Esta acción no se puede deshacer.`)) return
+                setBajaLoading(true)
+                try {
+                  await api.delete(`/v1/activos/${id}`)
+                  router.push('/activos')
+                } catch (e: unknown) {
+                  alert(e instanceof Error ? e.message : 'Error al dar de baja')
+                  setBajaLoading(false)
+                }
+              }}>
+              {bajaLoading ? 'Procesando…' : 'Dar de baja'}
+            </Btn>
           )}
           <div style={{ flex: 1 }} />
           <Link href="/activos" style={{ textDecoration: 'none' }}>
