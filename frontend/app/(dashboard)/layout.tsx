@@ -7,7 +7,7 @@ import { isAuthenticated, logout } from '@/lib/auth'
 import {
   LayoutDashboard, Package, TrendingDown, UserCheck,
   Wrench, BarChart2, Tag, ShieldCheck, Settings,
-  ChevronLeft, ChevronRight, Bell, Sun, Moon, HelpCircle, PlusCircle,
+  ChevronLeft, ChevronRight, Bell, Sun, Moon, HelpCircle, PlusCircle, MapPin, Layers,
 } from 'lucide-react'
 
 const NAV_SECTIONS = [
@@ -28,10 +28,11 @@ const NAV_SECTIONS = [
     ],
   },
   {
-    label: 'Reportería',
+    label: 'Configuración',
     items: [
+      { href: '/taxonomia',  icon: Layers,     label: 'Grupos y Clases' },
+      { href: '/sucursales', icon: MapPin,     label: 'Sucursales' },
       { href: '/reportes',   icon: BarChart2,  label: 'Reportes' },
-      { href: '/categorias', icon: Tag,        label: 'Categorías' },
       { href: '/auditoria',  icon: ShieldCheck,label: 'Auditoría' },
     ],
   },

@@ -1,12 +1,12 @@
 'use client'
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
-import type { PaginatedActivos, Activo, Categoria, CentroCosto, Asignacion, Mantenimiento } from '@/types'
+import type { PaginatedActivos, Activo, Grupo, Sucursal, Asignacion, Mantenimiento } from '@/types'
 import {
-  Badge, Btn, Card, ColDef, FormField, FONT, MONO, Modal, PageHeader,
+  Badge, Btn, Card, ColDef, FONT, MONO, Modal, PageHeader,
   PhotoUpload, ProgressBar, QRCode, SearchBar, SectionTitle, SelectDark,
-  Table, fmt, fmtDate, pct,
+  Table, fmt, fmtDate,
 } from '@/components/ui'
 import { Package, List, Grid, Upload, Download, Plus } from 'lucide-react'
 
@@ -19,17 +19,18 @@ const TAB_LABELS: Record<Tab, string> = {
   mant: 'Mantenimiento', docs: 'Documentos', qr: 'Código QR',
 }
 
-function ModalDetalle({ activo, centros, onClose, onEdit }: {
-  activo: Activo; centros: CentroCosto[]; onClose: () => void; onEdit: () => void
+function ModalDetalle({ activo, grupos, sucursales, onClose, onEdit }: {
+  activo: Activo; grupos: Grupo[]; sucursales: Sucursal[]; onClose: () => void; onEdit: () => void
 }) {
   const [tab, setTab] = useState<Tab>('info')
   const [asigs, setAsigs] = useState<Asignacion[] | null>(null)
   const [mants, setMants] = useState<Mantenimiento[] | null>(null)
 
-  const cc = centros.find(c => c.id === activo.centro_costo_id)
-  const vidaUtil = activo.vida_util_años ?? 5
-  const cuotaAnual = activo.valor_adquisicion / vidaUtil
-  const anoCompra = activo.fecha_compra ? new Date(activo.fecha_compra + 'T00:00:00').getFullYear() : 2020
+  const grupo = grupos.find(g => g.id === activo.grupo_id)
+  const sucursal = sucursales.find(s => s.id === activo.sucursal_id)
+  const vidaUtilAnios = activo.vida_util_años ?? Math.ceil(activo.vida_util_meses / 12)
+  const cuotaAnual = activo.depreciacion_mensual * 12
+  const anoCompra = activo.fecha_compra ? new Date(activo.fecha_compra + 'T00:00:00').getFullYear() : new Date().getFullYear()
 
   useEffect(() => {
     if (tab === 'asig' && asigs === null) {
@@ -46,8 +47,6 @@ function ModalDetalle({ activo, centros, onClose, onEdit }: {
         .catch(() => setMants([]))
     }
   }, [tab, activo.id, mants])
-
-  const docs: string[] = activo.documentos ?? []
 
   return (
     <Modal title={`${activo.codigo} — ${activo.nombre}`} onClose={onClose} width={820}>
@@ -74,7 +73,7 @@ function ModalDetalle({ activo, centros, onClose, onEdit }: {
             <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               {([
                 ['Código interno', activo.codigo],
-                ['Categoría', activo.categoria_id],
+                ['Grupo', grupo?.nombre ?? '—'],
                 ['Marca', activo.marca ?? '—'],
                 ['Modelo', activo.modelo ?? '—'],
                 ['N° de Serie', activo.numero_serie ?? '—'],
@@ -90,11 +89,9 @@ function ModalDetalle({ activo, centros, onClose, onEdit }: {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             {([
               ['Valor de Adquisición', fmt(activo.valor_adquisicion), ''],
-              ['Vida Útil', `${vidaUtil} años`, ''],
-              ['Área Asignada', activo.area ?? '—', ''],
-              ['Centro de Costo', cc ? `${cc.codigo} — ${cc.nombre}` : (activo.centro_costo_id ?? '—'), ''],
-              ['Responsable', activo.responsable ?? '—', ''],
-              ['Ubicación', activo.ubicacion ?? '—', ''],
+              ['Vida Útil', `${activo.vida_util_meses} meses`, ''],
+              ['Sucursal', sucursal?.nombre ?? '—', ''],
+              ['Dep. Mensual', fmt(activo.depreciacion_mensual), ''],
               ['Valor Actual', fmt(activo.valor_libro_actual), 'var(--clt-cyan)'],
               ['Depreciación Acum.', fmt(activo.depreciacion_acumulada ?? 0), '#F87171'],
             ] as [string, string, string][]).map(([k, v, c]) => (
@@ -124,7 +121,7 @@ function ModalDetalle({ activo, centros, onClose, onEdit }: {
           </div>
           <ProgressBar label="Porcentaje depreciado" value={activo.depreciacion_acumulada ?? 0} max={activo.valor_adquisicion} color="#F87171" />
           <div style={{ marginTop: 20 }}>
-            <SectionTitle>Tabla de depreciación anual — método lineal</SectionTitle>
+            <SectionTitle>Tabla de depreciación — método lineal (resumen anual)</SectionTitle>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, fontFamily: 'var(--clt-font-body)' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
@@ -134,9 +131,9 @@ function ModalDetalle({ activo, centros, onClose, onEdit }: {
                 </tr>
               </thead>
               <tbody>
-                {Array.from({ length: vidaUtil }, (_, i) => {
+                {Array.from({ length: vidaUtilAnios }, (_, i) => {
                   const acum = cuotaAnual * (i + 1)
-                  const residual = Math.max(0, activo.valor_adquisicion - acum)
+                  const residual = Math.max(activo.valor_residual, activo.valor_adquisicion - acum)
                   const yr = anoCompra + i
                   const isPast = acum <= (activo.depreciacion_acumulada ?? 0)
                   return (
@@ -164,16 +161,19 @@ function ModalDetalle({ activo, centros, onClose, onEdit }: {
         ) : (
           <Table
             columns={[
-              { key: 'id', label: 'ID', style: { width: 90 }, render: v => <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--clt-cyan)' }}>{String(v)}</span> },
-              { key: 'empleado_nombre', label: 'Empleado', render: (v, r) => (
+              { key: 'id', label: 'ID', style: { width: 90 }, render: v => <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--clt-cyan)' }}>{String(v).slice(0, 8)}…</span> },
+              { key: 'responsable_nombre', label: 'Responsable', render: (v, r) => (
                 <div>
                   <div style={{ fontFamily: FONT, fontWeight: 700, fontSize: 13, color: 'var(--t-text-1)' }}>{String(v)}</div>
-                  {r.empleado_cedula && <div style={{ fontSize: 10, color: 'var(--t-text-5)' }}>CI: {String(r.empleado_cedula)}</div>}
+                  {(r as unknown as Asignacion).responsable_codigo && <div style={{ fontSize: 10, color: 'var(--t-text-5)' }}>Cód: {(r as unknown as Asignacion).responsable_codigo}</div>}
                 </div>
               )},
-              { key: 'area', label: 'Área', render: v => <span style={{ fontSize: 12, color: 'var(--t-text-3)' }}>{String(v)}</span> },
-              { key: 'fecha_asignacion', label: 'Desde', render: v => <span style={{ fontSize: 12, color: 'var(--t-text-3)' }}>{fmtDate(String(v))}</span> },
-              { key: 'estado', label: 'Estado', render: v => <Badge estado={String(v)} /> },
+              { key: 'sucursal_id', label: 'Sucursal', render: v => {
+                const s = sucursales.find(x => x.id === String(v))
+                return <span style={{ fontSize: 12, color: 'var(--t-text-3)' }}>{s?.nombre ?? '—'}</span>
+              }},
+              { key: 'fecha_inicio', label: 'Desde', render: v => <span style={{ fontSize: 12, color: 'var(--t-text-3)' }}>{fmtDate(String(v))}</span> },
+              { key: 'vigente', label: 'Estado', render: v => <Badge estado={v ? 'activo' : 'dado_de_baja'} /> },
             ] as ColDef<Asignacion>[]}
             rows={asigs as unknown as Record<string, unknown>[]}
           />
@@ -189,8 +189,8 @@ function ModalDetalle({ activo, centros, onClose, onEdit }: {
         ) : (
           <Table
             columns={[
-              { key: 'id', label: 'Orden', style: { width: 90 }, render: v => <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--clt-cyan)' }}>{String(v)}</span> },
-              { key: 'tipo', label: 'Tipo', render: v => <span style={{ fontFamily: FONT, fontWeight: 700, fontSize: 10, letterSpacing: '0.07em', textTransform: 'uppercase', color: v === 'Correctivo' || v === 'correctivo' ? '#F87171' : v === 'Preventivo' || v === 'preventivo' ? 'var(--clt-violet)' : 'var(--clt-cyan)' }}>{String(v)}</span> },
+              { key: 'id', label: 'Orden', style: { width: 90 }, render: v => <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--clt-cyan)' }}>{String(v).slice(0, 8)}…</span> },
+              { key: 'tipo', label: 'Tipo', render: v => <span style={{ fontFamily: FONT, fontWeight: 700, fontSize: 10, letterSpacing: '0.07em', textTransform: 'uppercase', color: v === 'correctivo' ? '#F87171' : v === 'preventivo' ? 'var(--clt-violet)' : 'var(--clt-cyan)' }}>{String(v)}</span> },
               { key: 'descripcion', label: 'Descripción', render: v => <span style={{ fontSize: 11, color: 'var(--t-text-3)' }}>{String(v).length > 50 ? String(v).slice(0, 48) + '…' : String(v)}</span> },
               { key: 'costo', label: 'Costo', render: v => Number(v) > 0 ? fmt(Number(v)) : <span style={{ color: 'var(--t-text-6)' }}>Sin costo</span> },
               { key: 'estado', label: 'Estado', render: v => <Badge estado={String(v)} /> },
@@ -203,17 +203,7 @@ function ModalDetalle({ activo, centros, onClose, onEdit }: {
       {/* DOCUMENTOS */}
       {tab === 'docs' && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-          {docs.map(doc => (
-            <div key={doc} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer', background: 'var(--t-bg-card2)', minWidth: 180, transition: 'border-color 120ms' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(104,116,181,0.4)' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.08)' }}>
-              <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="var(--clt-violet)" strokeWidth={2}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14,2 14,8 20,8" /><line x1={16} y1={13} x2={8} y2={13} /><line x1={16} y1={17} x2={8} y2={17} /></svg>
-              <span style={{ fontFamily: FONT, fontWeight: 700, fontSize: 11, color: 'var(--t-text-2)' }}>{doc}</span>
-            </div>
-          ))}
-          {docs.length === 0 && (
-            <div style={{ color: 'var(--t-text-5)', fontFamily: FONT, fontWeight: 700, fontSize: 13, padding: '20px 0' }}>Sin documentos adjuntos</div>
-          )}
+          <div style={{ color: 'var(--t-text-5)', fontFamily: FONT, fontWeight: 700, fontSize: 13, padding: '20px 0' }}>Sin documentos adjuntos</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', border: '2px dashed rgba(255,255,255,0.1)', cursor: 'pointer', minWidth: 180, color: 'var(--t-text-6)', transition: 'border-color 120ms' }}
             onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(104,116,181,0.4)' }}
             onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.1)' }}>
@@ -242,10 +232,9 @@ function ModalDetalle({ activo, centros, onClose, onEdit }: {
               {([
                 ['ID del activo', activo.codigo],
                 ['Nombre', activo.nombre],
-                ['Categoría', activo.categoria_id],
+                ['Grupo', grupo?.nombre ?? '—'],
                 ['Serie', activo.numero_serie ?? '—'],
-                ['Área', activo.area ?? '—'],
-                ['Centro de costo', cc ? cc.codigo : (activo.centro_costo_id ?? '—')],
+                ['Sucursal', sucursal?.nombre ?? '—'],
               ] as [string, string][]).map(([k, v]) => (
                 <div key={k} style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                   <span style={{ fontSize: 10, color: 'var(--t-text-5)', fontFamily: FONT, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', width: 130, flexShrink: 0 }}>{k}</span>
@@ -284,13 +273,13 @@ function ModalDetalle({ activo, centros, onClose, onEdit }: {
 export default function ActivosPage() {
   const router = useRouter()
   const [data, setData] = useState<PaginatedActivos | null>(null)
-  const [categorias, setCategorias] = useState<Categoria[]>([])
-  const [centros, setCentros] = useState<CentroCosto[]>([])
+  const [grupos, setGrupos] = useState<Grupo[]>([])
+  const [sucursales, setSucursales] = useState<Sucursal[]>([])
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
   const [estado, setEstado] = useState('')
-  const [categoriaId, setCategoriaId] = useState('')
-  const [ccId, setCcId] = useState('')
+  const [grupoId, setGrupoId] = useState('')
+  const [sucursalId, setSucursalId] = useState('')
   const [page, setPage] = useState(1)
   const [view, setView] = useState<'table' | 'grid'>('table')
   const [detalle, setDetalle] = useState<Activo | null>(null)
@@ -300,8 +289,8 @@ export default function ActivosPage() {
     const params = new URLSearchParams({ page: String(page), page_size: '20' })
     if (q) params.set('q', q)
     if (estado) params.set('estado', estado)
-    if (categoriaId) params.set('categoria_id', categoriaId)
-    if (ccId) params.set('centro_costo_id', ccId)
+    if (grupoId) params.set('grupo_id', grupoId)
+    if (sucursalId) params.set('sucursal_id', sucursalId)
     try {
       const res = await api.get<PaginatedActivos>(`/v1/activos?${params}`)
       setData(res)
@@ -310,15 +299,15 @@ export default function ActivosPage() {
 
   useEffect(() => {
     Promise.allSettled([
-      api.get<Categoria[]>('/v1/categorias'),
-      api.get<CentroCosto[]>('/v1/centros-costo'),
-    ]).then(([cr, ccr]) => {
-      if (cr.status === 'fulfilled') setCategorias(cr.value)
-      if (ccr.status === 'fulfilled') setCentros(ccr.value)
+      api.get<Grupo[]>('/v1/taxonomia/grupos'),
+      api.get<Sucursal[]>('/v1/sucursales'),
+    ]).then(([gr, sr]) => {
+      if (gr.status === 'fulfilled') setGrupos(gr.value)
+      if (sr.status === 'fulfilled') setSucursales(sr.value)
     })
   }, [])
 
-  useEffect(() => { fetchActivos() }, [page, estado, categoriaId, ccId])
+  useEffect(() => { fetchActivos() }, [page, estado, grupoId, sucursalId])
   useEffect(() => {
     const t = setTimeout(fetchActivos, 400)
     return () => clearTimeout(t)
@@ -330,7 +319,7 @@ export default function ActivosPage() {
 
   const cols: ColDef<Activo>[] = [
     {
-      key: 'codigo', label: 'Código', style: { width: 100 },
+      key: 'codigo', label: 'Código', style: { width: 110 },
       render: v => <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--clt-cyan)' }}>{String(v)}</span>,
     },
     {
@@ -347,21 +336,26 @@ export default function ActivosPage() {
         </div>
       ),
     },
-    { key: 'categoria_id', label: 'Categoría', render: v => <span style={{ fontSize: 12, color: 'var(--t-text-3)' }}>{String(v)}</span> },
     {
-      key: 'centro_costo_id', label: 'C. Costo',
+      key: 'grupo_id', label: 'Grupo',
       render: v => {
-        const cc = centros.find(c => c.id === String(v))
-        return <span style={{ fontSize: 11, color: 'var(--t-text-4)', fontFamily: FONT, fontWeight: 700 }}>{cc ? cc.codigo : (v ? String(v) : '—')}</span>
+        const g = grupos.find(x => x.id === String(v))
+        return <span style={{ fontSize: 12, color: 'var(--t-text-3)' }}>{g?.nombre ?? '—'}</span>
       },
     },
-    { key: 'area', label: 'Área', render: v => <span style={{ fontSize: 12, color: 'var(--t-text-3)' }}>{String(v ?? '—')}</span> },
+    {
+      key: 'sucursal_id', label: 'Sucursal',
+      render: v => {
+        const s = sucursales.find(x => x.id === String(v))
+        return <span style={{ fontSize: 11, color: 'var(--t-text-4)', fontFamily: FONT, fontWeight: 700 }}>{s?.nombre ?? '—'}</span>
+      },
+    },
     { key: 'valor_adquisicion', label: 'Valor Adq.', render: v => <span style={{ fontFamily: FONT, fontWeight: 700, fontSize: 12, color: 'var(--t-text-2)' }}>{fmt(Number(v))}</span> },
     { key: 'valor_libro_actual', label: 'Valor Actual', render: v => <span style={{ fontFamily: FONT, fontWeight: 700, fontSize: 12, color: 'var(--clt-cyan)' }}>{fmt(Number(v))}</span> },
     { key: 'estado', label: 'Estado', render: v => <Badge estado={String(v)} /> },
   ]
 
-  const hasFilter = q || estado || categoriaId || ccId
+  const hasFilter = q || estado || grupoId || sucursalId
 
   return (
     <div>
@@ -381,21 +375,20 @@ export default function ActivosPage() {
       {/* Filtros */}
       <Card style={{ marginBottom: 12 }}>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <SearchBar value={q} onChange={v => { setQ(v); setPage(1) }} placeholder="Buscar por nombre, código, serie, responsable..." />
-          <SelectDark value={categoriaId} onChange={v => { setCategoriaId(v); setPage(1) }} style={{ minWidth: 160 }}
-            options={[{ value: '', label: 'Todas las categorías' }, ...categorias.map(c => ({ value: c.id, label: c.nombre }))]} />
+          <SearchBar value={q} onChange={v => { setQ(v); setPage(1) }} placeholder="Buscar por nombre, código, serie..." />
+          <SelectDark value={grupoId} onChange={v => { setGrupoId(v); setPage(1) }} style={{ minWidth: 160 }}
+            options={[{ value: '', label: 'Todos los grupos' }, ...grupos.map(g => ({ value: g.id, label: `${g.codigo} — ${g.nombre}` }))]} />
           <SelectDark value={estado} onChange={v => { setEstado(v); setPage(1) }} style={{ minWidth: 140 }}
             options={[
               { value: '', label: 'Todos los estados' },
               { value: 'activo', label: 'Activo' },
               { value: 'en_mantenimiento', label: 'En Mantenimiento' },
               { value: 'dado_de_baja', label: 'Dado de Baja' },
-              { value: 'reservado', label: 'Reservado' },
             ]} />
-          <SelectDark value={ccId} onChange={v => { setCcId(v); setPage(1) }} style={{ minWidth: 160 }}
-            options={[{ value: '', label: 'Centro de costo' }, ...centros.map(c => ({ value: c.id, label: `${c.codigo} — ${c.nombre.slice(0, 18)}…` }))]} />
+          <SelectDark value={sucursalId} onChange={v => { setSucursalId(v); setPage(1) }} style={{ minWidth: 160 }}
+            options={[{ value: '', label: 'Todas las sucursales' }, ...sucursales.map(s => ({ value: s.id, label: s.nombre }))]} />
           {hasFilter && (
-            <Btn variant="ghost" small onClick={() => { setQ(''); setEstado(''); setCategoriaId(''); setCcId(''); setPage(1) }}>Limpiar</Btn>
+            <Btn variant="ghost" small onClick={() => { setQ(''); setEstado(''); setGrupoId(''); setSucursalId(''); setPage(1) }}>Limpiar</Btn>
           )}
         </div>
       </Card>
@@ -441,7 +434,8 @@ export default function ActivosPage() {
       {detalle && (
         <ModalDetalle
           activo={detalle}
-          centros={centros}
+          grupos={grupos}
+          sucursales={sucursales}
           onClose={() => setDetalle(null)}
           onEdit={() => { router.push(`/activos/${detalle.id}`); setDetalle(null) }}
         />

@@ -44,14 +44,14 @@ export default function ActivoDetailPage() {
   )
 
   const depPct = pct(activo.depreciacion_acumulada, activo.valor_adquisicion)
-  const cuotaAnual = activo.vida_util_años ? activo.valor_adquisicion / activo.vida_util_años : 0
+  const cuotaAnual = activo.depreciacion_mensual * 12
+  const vidaUtilAnios = activo.vida_util_años ?? Math.ceil(activo.vida_util_meses / 12)
 
   const asigCols: ColDef<Asignacion>[] = [
     { key: 'id', label: 'ID', render: v => <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--clt-cyan)' }}>{String(v).slice(-8)}</span> },
-    { key: 'empleado_nombre', label: 'Empleado', render: (v, r) => <div><div style={{ fontFamily: FONT, fontWeight: 700, fontSize: 13, color: 'var(--t-text-1)' }}>{String(v)}</div>{r.empleado_cedula && <div style={{ fontSize: 10, color: 'var(--t-text-5)' }}>CI: {String(r.empleado_cedula)}</div>}</div> },
-    { key: 'area', label: 'Área', render: v => <span style={{ fontSize: 12, color: 'var(--t-text-3)' }}>{String(v)}</span> },
-    { key: 'fecha_asignacion', label: 'Desde', render: v => fmtDate(String(v)) },
-    { key: 'estado', label: 'Estado', render: v => <Badge estado={String(v)} /> },
+    { key: 'responsable_nombre', label: 'Responsable', render: (v, r) => <div><div style={{ fontFamily: FONT, fontWeight: 700, fontSize: 13, color: 'var(--t-text-1)' }}>{String(v)}</div>{(r as unknown as Asignacion).responsable_codigo && <div style={{ fontSize: 10, color: 'var(--t-text-5)' }}>Cód: {(r as unknown as Asignacion).responsable_codigo}</div>}</div> },
+    { key: 'fecha_inicio', label: 'Desde', render: v => fmtDate(String(v)) },
+    { key: 'vigente', label: 'Estado', render: v => <Badge estado={v ? 'activo' : 'dado_de_baja'} /> },
   ]
 
   const mantCols: ColDef<Mantenimiento>[] = [
@@ -100,7 +100,7 @@ export default function ActivoDetailPage() {
               <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 {([
                   ['Código interno', activo.codigo],
-                  ['Categoría', activo.categoria_id],
+                  ['Grupo', activo.grupo_id],
                   ['Marca', activo.marca],
                   ['Modelo', activo.modelo],
                   ['N° de Serie', activo.numero_serie],
@@ -116,10 +116,9 @@ export default function ActivoDetailPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               {([
                 ['Valor de Adquisición', fmt(activo.valor_adquisicion), ''],
-                ['Vida Útil', `${activo.vida_util_años ?? '—'} años`, ''],
-                ['Área Asignada', activo.area ?? '—', ''],
-                ['Responsable', activo.responsable ?? '—', ''],
-                ['Ubicación', activo.ubicacion ?? '—', ''],
+                ['Vida Útil', `${activo.vida_util_meses} meses`, ''],
+                ['Dep. Mensual', fmt(activo.depreciacion_mensual), ''],
+                ['Sucursal', activo.sucursal_id, ''],
                 ['Valor Actual', fmt(activo.valor_libro_actual), 'var(--clt-cyan)'],
                 ['Depreciación Acum.', fmt(activo.depreciacion_acumulada), '#F87171'],
               ] as [string, string, string][]).map(([k, v, color]) => (
@@ -159,7 +158,7 @@ export default function ActivoDetailPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {Array.from({ length: activo.vida_util_años ?? 5 }, (_, i) => {
+                  {Array.from({ length: vidaUtilAnios }, (_, i) => {
                     const acum = cuotaAnual * (i + 1)
                     const residual = Math.max(0, activo.valor_adquisicion - acum)
                     const yr = (activo.fecha_compra ? new Date(String(activo.fecha_compra) + 'T00:00:00').getFullYear() : new Date().getFullYear()) + i
@@ -226,9 +225,8 @@ export default function ActivoDetailPage() {
                 {([
                   ['ID del activo', activo.codigo],
                   ['Nombre', activo.nombre],
-                  ['Categoría', activo.categoria_id],
+                  ['Grupo', activo.grupo_id],
                   ['Serie', activo.numero_serie ?? '—'],
-                  ['Área', activo.area ?? '—'],
                 ] as [string, string][]).map(([k, v]) => (
                   <div key={k} style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                     <span style={{ fontSize: 10, color: 'var(--t-text-5)', fontFamily: FONT, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', width: 130, flexShrink: 0 }}>{k}</span>

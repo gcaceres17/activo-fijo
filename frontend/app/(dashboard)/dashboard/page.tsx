@@ -155,13 +155,13 @@ export default function DashboardPage() {
   const totalActivos = kpis?.total_activos               ?? 0
   const enMant       = kpis?.en_mantenimiento            ?? 0
   const dadosBaja    = kpis?.dados_de_baja               ?? 0
-  const reservados   = kpis?.reservados                  ?? 0
   const valorLibros  = kpis?.valor_libro_total           ?? 0
   const depAcum      = kpis?.depreciacion_acumulada_total ?? 0
   const valorCartera = kpis?.valor_total_cartera         ?? 0
-  const activosCount = Math.max(0, totalActivos - enMant - dadosBaja - reservados)
+  const activosCount = Math.max(0, totalActivos - enMant - dadosBaja)
 
-  const maxCat     = Math.max(...(kpis?.por_categoria ?? []).map(c => c.total), 1)
+  const GROUP_COLORS = ['#6874B5','#6CBEDA','#65A0D3','#4ADE80','#FBB040','#F87171','#A5B4FC','#34D399','#FB923C','#60A5FA']
+  const maxGrupo   = Math.max(...(kpis?.por_grupo ?? []).map(g => g.total), 1)
   const pendientes = mants.filter(m => m.estado !== 'completado')
   const today      = new Date().toLocaleDateString('es-PY', { day: '2-digit', month: 'long', year: 'numeric' })
 
@@ -206,7 +206,6 @@ export default function DashboardPage() {
                 { value: activosCount, color: '#4ADE80' },
                 { value: enMant,       color: '#FBB040' },
                 { value: dadosBaja,    color: '#F87171' },
-                { value: reservados,   color: '#A5B4FC' },
               ]} />
               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
                 <span style={{ fontFamily: FONT, fontWeight: 900, fontSize: 18, color: 'var(--t-text-white)', lineHeight: 1 }}>{totalActivos}</span>
@@ -218,7 +217,6 @@ export default function DashboardPage() {
                 { label: 'Activos',       count: activosCount, color: '#4ADE80' },
                 { label: 'Mantenimiento', count: enMant,       color: '#FBB040' },
                 { label: 'Baja',          count: dadosBaja,    color: '#F87171' },
-                { label: 'Reservado',     count: reservados,   color: '#A5B4FC' },
               ] as const).map(it => (
                 <div key={it.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
@@ -232,21 +230,24 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Activos por categoría */}
+        {/* Activos por grupo */}
         <div style={{ background: 'var(--t-bg-card)', border: '1px solid var(--t-border)', backdropFilter: 'blur(8px)', padding: 22 }}>
-          <p style={{ fontFamily: FONT, fontWeight: 700, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--t-text-3)', margin: '0 0 16px' }}>Activos por Categoría</p>
+          <p style={{ fontFamily: FONT, fontWeight: 700, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--t-text-3)', margin: '0 0 16px' }}>Activos por Grupo</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {(kpis?.por_categoria ?? []).map(c => (
-              <div key={c.categoria_id}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span style={{ fontSize: 11, color: 'var(--t-text-3)' }}>{c.nombre}</span>
-                  <span style={{ fontFamily: FONT, fontWeight: 700, fontSize: 11, color: 'var(--t-text-2)' }}>{c.total}</span>
+            {(kpis?.por_grupo ?? []).slice(0, 6).map((g, idx) => {
+              const color = GROUP_COLORS[idx % GROUP_COLORS.length]
+              return (
+                <div key={g.grupo_id}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <span style={{ fontSize: 11, color: 'var(--t-text-3)' }}>{g.nombre}</span>
+                    <span style={{ fontFamily: FONT, fontWeight: 700, fontSize: 11, color: 'var(--t-text-2)' }}>{g.total}</span>
+                  </div>
+                  <div style={{ height: 3, background: 'var(--t-bg-input)', borderRadius: 2, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${pct(g.total, maxGrupo)}%`, background: color, borderRadius: 2, boxShadow: `0 0 8px ${color}80`, transition: 'width 600ms var(--clt-ease)' }} />
+                  </div>
                 </div>
-                <div style={{ height: 3, background: 'var(--t-bg-input)', borderRadius: 2, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${pct(c.total, maxCat)}%`, background: c.color_hex, borderRadius: 2, boxShadow: `0 0 8px ${c.color_hex}80`, transition: 'width 600ms var(--clt-ease)' }} />
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
 
@@ -291,7 +292,7 @@ export default function DashboardPage() {
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: FONT, fontWeight: 700, fontSize: 12, color: 'var(--t-text-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.nombre}</div>
-                <div style={{ fontSize: 10, color: 'var(--t-text-5)' }}>{a.codigo} · {a.area ?? '—'}</div>
+                <div style={{ fontSize: 10, color: 'var(--t-text-5)' }}>{a.codigo}</div>
               </div>
               <Badge estado={a.estado} />
             </div>
