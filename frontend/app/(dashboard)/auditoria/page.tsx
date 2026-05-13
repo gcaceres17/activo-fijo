@@ -29,16 +29,16 @@ export default function AuditoriaPage() {
 
   const filtered = logs.filter(l => {
     const sq = q.toLowerCase()
-    return !q || l.usuario_email.toLowerCase().includes(sq) || l.detalle.toLowerCase().includes(sq) || l.accion.toLowerCase().includes(sq)
+    return !q || l.accion.toLowerCase().includes(sq) || (l.entidad ?? '').toLowerCase().includes(sq) || String(l.usuario_id ?? '').toLowerCase().includes(sq)
   })
 
   const today = new Date().toISOString().split('T')[0]
-  const eventosHoy = logs.filter(l => l.fecha_hora?.startsWith(today)).length
+  const eventosHoy = logs.filter(l => l.created_at?.startsWith(today)).length
 
   const cols: ColDef<AuditLog>[] = [
     { key: 'id', label: 'ID', style: { width: 90 }, render: v => <span style={{ fontFamily: MONO, fontSize: 10, color: 'var(--t-text-5)' }}>{String(v).slice(-8)}</span> },
-    { key: 'fecha_hora', label: 'Fecha', render: v => <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--t-text-4)' }}>{String(v ?? '').replace('T', ' ').slice(0, 16)}</span> },
-    { key: 'usuario_email', label: 'Usuario', render: v => <span style={{ fontFamily: FONT, fontWeight: 700, fontSize: 12, color: 'var(--clt-cyan)' }}>{String(v)}</span> },
+    { key: 'created_at', label: 'Fecha', render: v => <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--t-text-4)' }}>{String(v ?? '').replace('T', ' ').slice(0, 16)}</span> },
+    { key: 'usuario_id', label: 'Usuario', render: v => <span style={{ fontFamily: MONO, fontSize: 10, color: 'var(--clt-cyan)' }}>{String(v ?? '—').slice(-12)}</span> },
     {
       key: 'accion', label: 'Acción',
       render: v => {
@@ -51,8 +51,8 @@ export default function AuditoriaPage() {
         )
       },
     },
-    { key: 'detalle', label: 'Detalle', render: v => <span style={{ fontSize: 12, color: 'var(--t-text-4)' }}>{String(v)}</span> },
-    { key: 'ip_origen', label: 'IP', render: v => <span style={{ fontFamily: MONO, fontSize: 10, color: 'var(--t-text-6)' }}>{String(v ?? '—')}</span> },
+    { key: 'entidad', label: 'Entidad', render: (v, r) => <span style={{ fontSize: 12, color: 'var(--t-text-4)' }}>{String(v ?? '—')}{(r as unknown as AuditLog).entidad_id ? ` · ${String((r as unknown as AuditLog).entidad_id).slice(-8)}` : ''}</span> },
+    { key: 'ip_address', label: 'IP', render: v => <span style={{ fontFamily: MONO, fontSize: 10, color: 'var(--t-text-6)' }}>{String(v ?? '—')}</span> },
   ]
 
   if (loading) return (
@@ -70,13 +70,13 @@ export default function AuditoriaPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
         <KPICard label="Eventos hoy" value={eventosHoy} icon={<Activity size={14} />} sub="últimas 24 horas" />
-        <KPICard label="Esta semana" value={Math.min(logs.length, 12)} icon={<Calendar size={14} />} sub="eventos registrados" />
-        <KPICard label="Usuarios activos" value={new Set(logs.map(l => l.usuario_email)).size} icon={<Users size={14} />} sub="últimos 7 días" />
-        <KPICard label="Cambios críticos" value={logs.filter(l => l.accion === 'BAJA_ACTIVO').length} icon={<AlertTriangle size={14} />} sub="requieren revisión" gradient />
+        <KPICard label="Total registros" value={logs.length} icon={<Calendar size={14} />} sub="en el período" />
+        <KPICard label="Usuarios únicos" value={new Set(logs.map(l => l.usuario_id)).size} icon={<Users size={14} />} sub="activos en el log" />
+        <KPICard label="Bajas registradas" value={logs.filter(l => l.accion === 'BAJA_ACTIVO').length} icon={<AlertTriangle size={14} />} sub="requieren revisión" gradient />
       </div>
 
       <Card style={{ marginBottom: 12 }}>
-        <SearchBar value={q} onChange={setQ} placeholder="Buscar por usuario, acción, detalle..." />
+        <SearchBar value={q} onChange={setQ} placeholder="Buscar por acción, entidad, usuario..." />
       </Card>
 
       <Card noPad>
