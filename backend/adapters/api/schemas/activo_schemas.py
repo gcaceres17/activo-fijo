@@ -6,40 +6,39 @@ from decimal import Decimal
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 
 class ActivoCreate(BaseModel):
     nombre: str = Field(..., min_length=1, max_length=300)
-    categoria_id: UUID
+    grupo_id: UUID
+    clase_id: UUID
+    sucursal_id: UUID
+    valor_adquisicion: Decimal = Field(..., gt=Decimal("0"))
+    vida_util_meses: int = Field(60, ge=12, le=1200)
+    valor_residual: Decimal = Field(Decimal("0"), ge=Decimal("0"))
+    rubro_contable_id: Optional[UUID] = None
     marca: Optional[str] = Field(None, max_length=100)
     modelo: Optional[str] = Field(None, max_length=100)
     numero_serie: Optional[str] = Field(None, max_length=150)
     fecha_compra: Optional[date] = None
-    valor_adquisicion: Decimal = Field(..., ge=Decimal("0"))
-    vida_util_años: int = Field(5, ge=1, le=100)
-    valor_residual: Decimal = Field(Decimal("0"), ge=Decimal("0"))
-    area: Optional[str] = None
-    centro_costo_id: Optional[UUID] = None
-    responsable: Optional[str] = None
-    ubicacion: Optional[str] = None
     foto_url: Optional[str] = None
 
 
 class ActivoUpdate(BaseModel):
     nombre: Optional[str] = Field(None, min_length=1, max_length=300)
+    grupo_id: Optional[UUID] = None
+    clase_id: Optional[UUID] = None
+    sucursal_id: Optional[UUID] = None
+    rubro_contable_id: Optional[UUID] = None
     marca: Optional[str] = None
     modelo: Optional[str] = None
     numero_serie: Optional[str] = None
     fecha_compra: Optional[date] = None
-    valor_adquisicion: Optional[Decimal] = Field(None, ge=Decimal("0"))
-    vida_util_años: Optional[int] = Field(None, ge=1, le=100)
+    valor_adquisicion: Optional[Decimal] = Field(None, gt=Decimal("0"))
+    vida_util_meses: Optional[int] = Field(None, ge=12, le=1200)
     valor_residual: Optional[Decimal] = Field(None, ge=Decimal("0"))
     estado: Optional[str] = None
-    area: Optional[str] = None
-    centro_costo_id: Optional[UUID] = None
-    responsable: Optional[str] = None
-    ubicacion: Optional[str] = None
     foto_url: Optional[str] = None
 
 
@@ -47,25 +46,25 @@ class ActivoResponse(BaseModel):
     id: UUID
     codigo: str
     nombre: str
-    categoria_id: UUID
+    grupo_id: UUID
+    clase_id: UUID
+    sucursal_id: UUID
+    rubro_contable_id: Optional[UUID]
     marca: Optional[str]
     modelo: Optional[str]
     numero_serie: Optional[str]
     fecha_compra: Optional[date]
     valor_adquisicion: Decimal
+    vida_util_meses: int
     vida_util_años: int
     valor_residual: Decimal
-    depreciacion_anual: Decimal
+    depreciacion_mensual: Decimal
     depreciacion_acumulada: Decimal
     valor_libro_actual: Decimal
     porcentaje_depreciado: Decimal
     estado: str
-    area: Optional[str]
-    centro_costo_id: Optional[UUID]
-    responsable: Optional[str]
-    ubicacion: Optional[str]
     foto_url: Optional[str]
-    documentos: List[str]
+    qr_url: Optional[str]
     created_at: datetime
     updated_at: datetime
 
@@ -75,25 +74,25 @@ class ActivoResponse(BaseModel):
             id=activo.id,
             codigo=activo.codigo,
             nombre=activo.nombre,
-            categoria_id=activo.categoria_id,
+            grupo_id=activo.grupo_id,
+            clase_id=activo.clase_id,
+            sucursal_id=activo.sucursal_id,
+            rubro_contable_id=activo.rubro_contable_id,
             marca=activo.marca,
             modelo=activo.modelo,
             numero_serie=activo.numero_serie,
             fecha_compra=activo.fecha_compra,
             valor_adquisicion=activo.valor_adquisicion,
+            vida_util_meses=activo.vida_util_meses,
             vida_util_años=activo.vida_util_años,
             valor_residual=activo.valor_residual,
-            depreciacion_anual=activo.depreciacion_anual,
+            depreciacion_mensual=activo.depreciacion_mensual,
             depreciacion_acumulada=activo.depreciacion_acumulada,
             valor_libro_actual=activo.valor_libro_actual,
             porcentaje_depreciado=activo.porcentaje_depreciado,
             estado=activo.estado,
-            area=activo.area,
-            centro_costo_id=activo.centro_costo_id,
-            responsable=activo.responsable,
-            ubicacion=activo.ubicacion,
             foto_url=activo.foto_url,
-            documentos=activo.documentos,
+            qr_url=activo.qr_url,
             created_at=activo.created_at,
             updated_at=activo.updated_at,
         )
@@ -109,12 +108,10 @@ class PaginatedActivos(BaseModel):
 
 class AsignacionCreate(BaseModel):
     activo_id: UUID
-    empleado_nombre: str = Field(..., min_length=1, max_length=200)
-    empleado_cedula: Optional[str] = None
-    area: str = Field(..., min_length=1, max_length=100)
-    centro_costo_id: Optional[UUID] = None
-    fecha_asignacion: date = Field(default_factory=date.today)
-    observaciones: Optional[str] = None
+    responsable_nombre: str = Field(..., min_length=1, max_length=200)
+    responsable_codigo: Optional[str] = None
+    sucursal_id: UUID
+    fecha_inicio: date = Field(default_factory=date.today)
 
 
 class MantenimientoCreate(BaseModel):

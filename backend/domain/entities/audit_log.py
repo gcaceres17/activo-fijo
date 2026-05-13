@@ -1,38 +1,34 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Any, Dict, Literal, Optional
 from uuid import UUID
 
 
 AccionAudit = Literal[
-    "ALTA_ACTIVO", "MODIFICACION", "BAJA_ACTIVO",
-    "ASIGNACION", "BAJA_ASIGNACION",
+    "ALTA_ACTIVO", "MODIFICACION_ACTIVO", "BAJA_ACTIVO",
+    "ASIGNACION", "BAJA_ASIGNACION", "TRANSFERENCIA",
     "ALTA_MANTENIMIENTO", "CIERRE_MANTENIMIENTO",
-    "CONSULTA_REPORTE", "CONSULTA_DEPRECIACION",
+    "ALTA_GRUPO", "MODIFICACION_GRUPO",
+    "ALTA_CLASE", "MODIFICACION_CLASE",
+    "ALTA_SUCURSAL", "MODIFICACION_SUCURSAL",
+    "ALTA_RUBRO", "MODIFICACION_RUBRO",
+    "ALTA_DISPOSITIVO", "MODIFICACION_DISPOSITIVO",
+    "INICIO_JORNADA", "CIERRE_JORNADA",
     "LOGIN", "LOGOUT", "EXPORTACION",
-    "ALTA_CATEGORIA", "MODIFICACION_CATEGORIA",
-    "ALTA_DISPOSITIVO", "MODIFICACION_DISPOSITIVO"
 ]
 
 
-@dataclass(frozen=True)   # Inmutable — INV-6.1
+@dataclass(frozen=True)
 class AuditLog:
-    """
-    Registro inmutable de toda acción realizada en el sistema.
-    
-    Invariantes:
-        - Los audit logs NUNCA se modifican ni eliminan (append-only)
-        - Toda operación de escritura genera al menos un AuditLog
-        - frozen=True garantiza inmutabilidad en tiempo de ejecución
-    """
+    """Registro inmutable de toda acción realizada en el sistema (append-only)."""
     id: UUID
     tenant_id: UUID
-    fecha_hora: datetime
-    usuario_email: str
+    usuario_id: UUID
     accion: AccionAudit
-    detalle: str = ""
-    entidad: Optional[str] = None
-    entidad_id: Optional[UUID] = None
-    ip_origen: Optional[str] = None
+    entidad: str
+    entidad_id: UUID
+    payload_before: Dict[str, Any] = field(default_factory=dict)
+    payload_after: Dict[str, Any] = field(default_factory=dict)
+    ip_address: Optional[str] = None
     created_at: datetime = field(default_factory=datetime.utcnow)

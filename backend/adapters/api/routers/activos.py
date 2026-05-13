@@ -1,6 +1,7 @@
 """Router FastAPI para Activos — adaptador de entrada."""
 from __future__ import annotations
 
+import math
 from typing import Optional
 from uuid import UUID
 
@@ -22,15 +23,15 @@ async def get_kpis(
     return await uc.obtener_kpis(current_user.tenant_id)
 
 
-@router.get("/depreciacion", summary="Tabla de depreciación")
+@router.get("/depreciacion", summary="Tabla de depreciación mensual")
 async def get_depreciacion(
-    categoria_id: Optional[UUID] = None,
-    area: Optional[str] = None,
+    grupo_id: Optional[UUID] = None,
+    sucursal_id: Optional[UUID] = None,
     current_user=Depends(get_current_user),
     uc=Depends(get_activo_uc),
 ):
     return await uc.calcular_depreciacion(
-        current_user.tenant_id, categoria_id=categoria_id, area=area
+        current_user.tenant_id, grupo_id=grupo_id, sucursal_id=sucursal_id
     )
 
 
@@ -39,20 +40,18 @@ async def list_activos(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     q: Optional[str] = None,
-    categoria_id: Optional[UUID] = None,
+    grupo_id: Optional[UUID] = None,
+    clase_id: Optional[UUID] = None,
+    sucursal_id: Optional[UUID] = None,
     estado: Optional[str] = None,
-    centro_costo_id: Optional[UUID] = None,
-    area: Optional[str] = None,
     current_user=Depends(get_current_user),
     uc=Depends(get_activo_uc),
 ):
     items, total = await uc.listar(
         current_user.tenant_id,
-        categoria_id=categoria_id, estado=estado,
-        centro_costo_id=centro_costo_id, area=area,
-        q=q, page=page, page_size=page_size,
+        grupo_id=grupo_id, clase_id=clase_id, sucursal_id=sucursal_id,
+        estado=estado, q=q, page=page, page_size=page_size,
     )
-    import math
     return PaginatedActivos(
         items=[ActivoResponse.from_entity(a) for a in items],
         total=total, page=page, page_size=page_size,
@@ -69,7 +68,7 @@ async def create_activo(
     try:
         activo = await uc.registrar(
             tenant_id=current_user.tenant_id,
-            usuario_email=current_user.email,
+            usuario_id=current_user.id,
             **body.model_dump(),
         )
         return ActivoResponse.from_entity(activo)
@@ -100,7 +99,7 @@ async def update_activo(
 ):
     try:
         campos = {k: v for k, v in body.model_dump().items() if v is not None}
-        activo = await uc.actualizar(id, current_user.tenant_id, current_user.email, **campos)
+        activo = await uc.actualizar(id, current_user.tenant_id, current_user.id, **campos)
         return ActivoResponse.from_entity(activo)
     except NotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -116,7 +115,7 @@ async def delete_activo(
     asig_repo=Depends(get_asignacion_repo),
 ):
     try:
-        await uc.dar_de_baja(id, current_user.tenant_id, current_user.email, asig_repo)
+        await uc.dar_de_baja(id, current_user.tenant_id, current_user.id, asig_repo)
         return {"message": "Activo dado de baja exitosamente"}
     except NotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -152,7 +151,7 @@ async def upload_foto(
     try:
         content = await foto.read()
         url = await uc.subir_foto(
-            id, current_user.tenant_id, current_user.email,
+            id, current_user.tenant_id, current_user.id,
             foto.filename, content, foto.content_type,
         )
         return {"foto_url": url}

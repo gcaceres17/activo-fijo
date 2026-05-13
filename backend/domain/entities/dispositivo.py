@@ -1,13 +1,12 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Any, Dict, Literal, Optional
 from uuid import UUID
 
 
-TipoDispositivo = Literal["impresora", "lector_qr", "lector_barcode"]
-ProtocoloDispositivo = Literal["usb", "tcp_ip", "bluetooth", "usb_hid"]
-EstadoDispositivo = Literal["conectado", "desconectado", "emparejado"]
+TipoDispositivo = Literal["impresora_etiquetas", "movil_relevador"]
+EstadoConexion = Literal["online", "offline", "desconocido"]
 
 
 @dataclass
@@ -17,19 +16,20 @@ class Dispositivo:
     tenant_id: UUID
     nombre: str
     tipo: TipoDispositivo
-    protocolo: ProtocoloDispositivo
-    estado: EstadoDispositivo = "desconectado"
-    driver: Optional[str] = None
+    modelo: str
     ip_address: Optional[str] = None
-    ultima_conexion: Optional[datetime] = None
+    estado_conexion: EstadoConexion = "desconocido"
+    ultimo_ping: Optional[datetime] = None
+    config: Dict[str, Any] = field(default_factory=dict)
+    deleted_at: Optional[datetime] = None
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
 
-    def marcar_conectado(self) -> None:
-        self.estado = "conectado"
-        self.ultima_conexion = datetime.utcnow()
+    def registrar_ping(self) -> None:
+        self.estado_conexion = "online"
+        self.ultimo_ping = datetime.utcnow()
         self.updated_at = datetime.utcnow()
 
-    def marcar_desconectado(self) -> None:
-        self.estado = "desconectado"
+    def marcar_offline(self) -> None:
+        self.estado_conexion = "offline"
         self.updated_at = datetime.utcnow()

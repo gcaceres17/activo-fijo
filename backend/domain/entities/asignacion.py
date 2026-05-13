@@ -1,44 +1,37 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Literal, Optional
+from typing import Optional
 from uuid import UUID
-
-
-EstadoAsignacion = Literal["vigente", "baja"]
 
 
 @dataclass
 class Asignacion:
-    """
-    Asignación formal de un activo a un empleado o área.
-    
+    """Vinculación activo ↔ responsable/área. Solo una vigente por activo (RN-D1).
+
     Invariantes:
-        - Solo una asignación vigente por activo (enforced en DB y application)
-        - fecha_baja >= fecha_asignacion si fecha_baja presente
-        - Solo se puede asignar activos en estado 'activo' o 'reservado'
+        - RN-D1: solo una asignación con vigente=True por activo (DB constraint)
+        - fecha_fin >= fecha_inicio si fecha_fin presente
     """
     id: UUID
     tenant_id: UUID
     activo_id: UUID
-    empleado_nombre: str
-    area: str
-    fecha_asignacion: date = field(default_factory=date.today)
-    estado: EstadoAsignacion = "vigente"
-    empleado_cedula: Optional[str] = None
-    centro_costo_id: Optional[UUID] = None
-    fecha_baja: Optional[date] = None
-    observaciones: Optional[str] = None
+    responsable_nombre: str
+    sucursal_id: UUID
+    fecha_inicio: date = field(default_factory=date.today)
+    vigente: bool = True
+    responsable_codigo: Optional[str] = None
+    fecha_fin: Optional[date] = None
     created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
 
     def __post_init__(self) -> None:
-        if self.fecha_baja and self.fecha_baja < self.fecha_asignacion:
-            raise ValueError("fecha_baja no puede ser anterior a fecha_asignacion")
+        if not self.responsable_nombre or not self.responsable_nombre.strip():
+            raise ValueError("responsable_nombre es requerido")
+        if self.fecha_fin and self.fecha_fin < self.fecha_inicio:
+            raise ValueError("fecha_fin no puede ser anterior a fecha_inicio")
 
-    def dar_de_baja(self, fecha_baja: Optional[date] = None) -> None:
-        if self.estado == "baja":
+    def dar_de_baja(self, fecha_fin: Optional[date] = None) -> None:
+        if not self.vigente:
             raise ValueError("La asignación ya está dada de baja")
-        self.estado = "baja"
-        self.fecha_baja = fecha_baja or date.today()
-        self.updated_at = datetime.utcnow()
+        self.vigente = False
+        self.fecha_fin = fecha_fin or date.today()

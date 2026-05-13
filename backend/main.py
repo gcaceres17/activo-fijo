@@ -7,8 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from infrastructure.database.connection import create_pool, close_pool
-from adapters.api.routers import auth, activos, asignaciones, mantenimientos
-from adapters.api.routers import categorias, centros_costo, audit_logs, dispositivos
+from adapters.api.routers import auth, activos, grupos, sucursales
+from adapters.api.routers import asignaciones, mantenimientos, audit_logs, dispositivos
 
 
 @asynccontextmanager
@@ -38,8 +38,8 @@ os.makedirs("./storage", exist_ok=True)
 app.mount("/static", StaticFiles(directory="./storage"), name="static")
 
 # Registrar todos los routers
-for router in [auth.router, activos.router, asignaciones.router,
-               mantenimientos.router, categorias.router, centros_costo.router,
+for router in [auth.router, activos.router, grupos.router, sucursales.router,
+               asignaciones.router, mantenimientos.router,
                audit_logs.router, dispositivos.router]:
     app.include_router(router)
 

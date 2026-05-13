@@ -1,7 +1,9 @@
 from .repositories import (
     ActivoRepositoryPort,
-    CategoriaRepositoryPort,
-    CentroCostoRepositoryPort,
+    GrupoRepositoryPort,
+    ClaseRepositoryPort,
+    SucursalRepositoryPort,
+    RubroContableRepositoryPort,
     AsignacionRepositoryPort,
     MantenimientoRepositoryPort,
     AuditLogRepositoryPort,
@@ -11,8 +13,11 @@ from .repositories import (
 from .services import QRServicePort, StoragePort
 
 __all__ = [
-    "ActivoRepositoryPort", "CategoriaRepositoryPort", "CentroCostoRepositoryPort",
-    "AsignacionRepositoryPort", "MantenimientoRepositoryPort", "AuditLogRepositoryPort",
-    "DispositivoRepositoryPort", "UsuarioRepositoryPort",
+    "ActivoRepositoryPort",
+    "GrupoRepositoryPort", "ClaseRepositoryPort",
+    "SucursalRepositoryPort", "RubroContableRepositoryPort",
+    "AsignacionRepositoryPort", "MantenimientoRepositoryPort",
+    "AuditLogRepositoryPort", "DispositivoRepositoryPort",
+    "UsuarioRepositoryPort",
     "QRServicePort", "StoragePort",
 ]

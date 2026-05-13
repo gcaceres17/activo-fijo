@@ -10,17 +10,12 @@ from typing import List, Optional, Tuple
 from uuid import UUID
 
 from domain.entities import (
-    Activo, Categoria, CentroCosto, Asignacion,
-    Mantenimiento, AuditLog, Dispositivo, Usuario
+    Activo, Grupo, Clase, Sucursal, RubroContable,
+    Asignacion, Mantenimiento, AuditLog, Dispositivo, Usuario,
 )
 
 
 class ActivoRepositoryPort(ABC):
-    """
-    Contrato de acceso a datos para Activo.
-    Implementado por PostgreSQLActivoRepository en infrastructure/.
-    """
-
     @abstractmethod
     async def get_by_id(self, id: UUID, tenant_id: UUID) -> Optional[Activo]: ...
 
@@ -35,16 +30,14 @@ class ActivoRepositoryPort(ABC):
         self,
         tenant_id: UUID,
         *,
-        categoria_id: Optional[UUID] = None,
+        grupo_id: Optional[UUID] = None,
+        clase_id: Optional[UUID] = None,
+        sucursal_id: Optional[UUID] = None,
         estado: Optional[str] = None,
-        centro_costo_id: Optional[UUID] = None,
-        area: Optional[str] = None,
         q: Optional[str] = None,
         page: int = 1,
         page_size: int = 20,
-    ) -> Tuple[List[Activo], int]:
-        """Retorna (items, total_count) para paginación."""
-        ...
+    ) -> Tuple[List[Activo], int]: ...
 
     @abstractmethod
     async def create(self, activo: Activo) -> Activo: ...
@@ -56,42 +49,87 @@ class ActivoRepositoryPort(ABC):
     async def soft_delete(self, id: UUID, tenant_id: UUID) -> None: ...
 
     @abstractmethod
-    async def get_kpis(self, tenant_id: UUID) -> dict:
-        """Retorna KPIs del dashboard desde la vista v_activos_kpis."""
-        ...
+    async def get_kpis(self, tenant_id: UUID) -> dict: ...
 
     @abstractmethod
-    async def next_codigo(self, tenant_id: UUID) -> str:
-        """Genera el próximo código secuencial ACT-XXXX para el tenant."""
-        ...
+    async def next_codigo(self, tenant_id: UUID) -> str: ...
 
 
-class CategoriaRepositoryPort(ABC):
+class GrupoRepositoryPort(ABC):
     @abstractmethod
-    async def list(self, tenant_id: UUID) -> List[Categoria]: ...
+    async def list(self, tenant_id: UUID) -> List[Grupo]: ...
 
     @abstractmethod
-    async def get_by_id(self, id: UUID, tenant_id: UUID) -> Optional[Categoria]: ...
+    async def get_by_id(self, id: UUID, tenant_id: UUID) -> Optional[Grupo]: ...
 
     @abstractmethod
-    async def create(self, categoria: Categoria) -> Categoria: ...
+    async def get_by_codigo(self, codigo: str, tenant_id: UUID) -> Optional[Grupo]: ...
 
     @abstractmethod
-    async def update(self, categoria: Categoria) -> Categoria: ...
-
-
-class CentroCostoRepositoryPort(ABC):
-    @abstractmethod
-    async def list(self, tenant_id: UUID) -> List[CentroCosto]: ...
+    async def create(self, grupo: Grupo) -> Grupo: ...
 
     @abstractmethod
-    async def get_by_id(self, id: UUID, tenant_id: UUID) -> Optional[CentroCosto]: ...
+    async def update(self, grupo: Grupo) -> Grupo: ...
 
     @abstractmethod
-    async def create(self, centro: CentroCosto) -> CentroCosto: ...
+    async def soft_delete(self, id: UUID, tenant_id: UUID) -> None: ...
+
+
+class ClaseRepositoryPort(ABC):
+    @abstractmethod
+    async def list(self, tenant_id: UUID, *, grupo_id: Optional[UUID] = None) -> List[Clase]: ...
 
     @abstractmethod
-    async def update(self, centro: CentroCosto) -> CentroCosto: ...
+    async def get_by_id(self, id: UUID, tenant_id: UUID) -> Optional[Clase]: ...
+
+    @abstractmethod
+    async def get_by_codigo(self, codigo: str, tenant_id: UUID) -> Optional[Clase]: ...
+
+    @abstractmethod
+    async def create(self, clase: Clase) -> Clase: ...
+
+    @abstractmethod
+    async def update(self, clase: Clase) -> Clase: ...
+
+    @abstractmethod
+    async def soft_delete(self, id: UUID, tenant_id: UUID) -> None: ...
+
+
+class SucursalRepositoryPort(ABC):
+    @abstractmethod
+    async def list(self, tenant_id: UUID) -> List[Sucursal]: ...
+
+    @abstractmethod
+    async def get_by_id(self, id: UUID, tenant_id: UUID) -> Optional[Sucursal]: ...
+
+    @abstractmethod
+    async def create(self, sucursal: Sucursal) -> Sucursal: ...
+
+    @abstractmethod
+    async def update(self, sucursal: Sucursal) -> Sucursal: ...
+
+    @abstractmethod
+    async def soft_delete(self, id: UUID, tenant_id: UUID) -> None: ...
+
+
+class RubroContableRepositoryPort(ABC):
+    @abstractmethod
+    async def list(self, tenant_id: UUID, *, solo_activos: bool = True) -> List[RubroContable]: ...
+
+    @abstractmethod
+    async def get_by_id(self, id: UUID, tenant_id: UUID) -> Optional[RubroContable]: ...
+
+    @abstractmethod
+    async def get_by_codigo(self, codigo: str, tenant_id: UUID) -> Optional[RubroContable]: ...
+
+    @abstractmethod
+    async def create(self, rubro: RubroContable) -> RubroContable: ...
+
+    @abstractmethod
+    async def update(self, rubro: RubroContable) -> RubroContable: ...
+
+    @abstractmethod
+    async def soft_delete(self, id: UUID, tenant_id: UUID) -> None: ...
 
 
 class AsignacionRepositoryPort(ABC):
@@ -110,8 +148,9 @@ class AsignacionRepositoryPort(ABC):
         self,
         tenant_id: UUID,
         *,
-        estado: Optional[str] = None,
         activo_id: Optional[UUID] = None,
+        sucursal_id: Optional[UUID] = None,
+        solo_vigentes: bool = False,
         page: int = 1,
         page_size: int = 20,
     ) -> Tuple[List[Asignacion], int]: ...
@@ -121,7 +160,7 @@ class AsignacionRepositoryPort(ABC):
 
     @abstractmethod
     async def dar_de_baja(
-        self, id: UUID, tenant_id: UUID, fecha_baja: Optional[date] = None
+        self, id: UUID, tenant_id: UUID, fecha_fin: Optional[date] = None
     ) -> Asignacion: ...
 
 
@@ -143,9 +182,7 @@ class MantenimientoRepositoryPort(ABC):
     ) -> Tuple[List[Mantenimiento], int]: ...
 
     @abstractmethod
-    async def get_by_id(
-        self, id: UUID, tenant_id: UUID
-    ) -> Optional[Mantenimiento]: ...
+    async def get_by_id(self, id: UUID, tenant_id: UUID) -> Optional[Mantenimiento]: ...
 
     @abstractmethod
     async def create(self, mnt: Mantenimiento) -> Mantenimiento: ...
@@ -156,17 +193,16 @@ class MantenimientoRepositoryPort(ABC):
 
 class AuditLogRepositoryPort(ABC):
     @abstractmethod
-    async def append(self, log: AuditLog) -> None:
-        """Inserta un nuevo log. NUNCA actualiza existentes."""
-        ...
+    async def append(self, log: AuditLog) -> None: ...
 
     @abstractmethod
     async def list(
         self,
         tenant_id: UUID,
         *,
-        usuario_email: Optional[str] = None,
+        usuario_id: Optional[UUID] = None,
         accion: Optional[str] = None,
+        entidad: Optional[str] = None,
         page: int = 1,
         page_size: int = 50,
     ) -> Tuple[List[AuditLog], int]: ...
@@ -185,12 +221,13 @@ class DispositivoRepositoryPort(ABC):
     @abstractmethod
     async def update(self, dispositivo: Dispositivo) -> Dispositivo: ...
 
+    @abstractmethod
+    async def soft_delete(self, id: UUID, tenant_id: UUID) -> None: ...
+
 
 class UsuarioRepositoryPort(ABC):
     @abstractmethod
-    async def get_by_email(
-        self, email: str, tenant_id: UUID
-    ) -> Optional[Usuario]: ...
+    async def get_by_email(self, email: str, tenant_id: UUID) -> Optional[Usuario]: ...
 
     @abstractmethod
     async def get_by_id(self, id: UUID) -> Optional[Usuario]: ...
