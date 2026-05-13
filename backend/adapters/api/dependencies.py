@@ -81,6 +81,7 @@ async def get_asignacion_uc() -> AsignacionUseCases:
         asignacion_repo=PostgreSQLAsignacionRepository(pool),
         activo_repo=PostgreSQLActivoRepository(pool),
         audit_repo=PostgreSQLAuditLogRepository(pool),
+        sucursal_repo=PostgreSQLSucursalRepository(pool),
     )
 
 
