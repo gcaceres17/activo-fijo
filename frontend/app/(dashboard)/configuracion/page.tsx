@@ -143,14 +143,14 @@ export default function ConfiguracionPage() {
       {tab === 'dispositivos' && (
         <div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12, marginBottom: 20 }}>
-            <KPICard label="Dispositivos activos" value={dispositivos.filter(d => d.estado === 'Conectado' || d.estado === 'Emparejado').length} icon={<HardDrive size={14} />} sub="conectados ahora" />
-            <KPICard label="Sin conexión" value={dispositivos.filter(d => d.estado === 'Desconectado').length} icon={<WifiOff size={14} />} sub="requieren atención" gradient />
+            <KPICard label="Dispositivos activos" value={dispositivos.filter(d => d.estado_conexion === 'online').length} icon={<HardDrive size={14} />} sub="conectados ahora" />
+            <KPICard label="Sin conexión" value={dispositivos.filter(d => d.estado_conexion === 'offline').length} icon={<WifiOff size={14} />} sub="requieren atención" gradient />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12, marginBottom: 16 }}>
             {dispositivos.map(d => {
               const color = DEV_TIPO_COLOR[d.tipo] ?? 'rgba(255,255,255,0.4)'
-              const connected = d.estado === 'Conectado' || d.estado === 'Emparejado'
+              const connected = d.estado_conexion === 'online'
               return (
                 <Card key={d.id} style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
                   <div style={{ width: 46, height: 46, background: `${color}18`, border: `1px solid ${color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color }}>
@@ -160,12 +160,12 @@ export default function ConfiguracionPage() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                       <div>
                         <div style={{ fontFamily: FONT, fontWeight: 900, fontSize: 14, color: 'var(--t-text-1)' }}>{d.nombre}</div>
-                        <div style={{ fontSize: 10, color: 'var(--t-text-5)', fontFamily: FONT, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: 2 }}>{d.tipo} · {d.protocolo}</div>
+                        <div style={{ fontSize: 10, color: 'var(--t-text-5)', fontFamily: FONT, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: 2 }}>{d.tipo} · {d.modelo ?? '—'}</div>
                       </div>
-                      <Badge estado={d.estado} />
+                      <Badge estado={d.estado_conexion === 'online' ? 'activo' : d.estado_conexion === 'offline' ? 'dado_de_baja' : 'en_mantenimiento'} />
                     </div>
-                    {d.driver && <div style={{ fontSize: 11, color: 'var(--t-text-5)', fontFamily: 'var(--clt-font-body)', marginBottom: 6 }}>Driver: <span style={{ color: 'var(--t-text-3)', fontFamily: MONO }}>{d.driver}</span></div>}
-                    {d.ultima_conexion && <div style={{ fontSize: 10, color: 'var(--t-text-6)', marginBottom: 12 }}>Último acceso: {d.ultima_conexion}</div>}
+                    {d.ip_address && <div style={{ fontSize: 11, color: 'var(--t-text-5)', fontFamily: 'var(--clt-font-body)', marginBottom: 6 }}>IP: <span style={{ color: 'var(--t-text-3)', fontFamily: MONO }}>{d.ip_address}</span></div>}
+                    {d.ultimo_ping && <div style={{ fontSize: 10, color: 'var(--t-text-6)', marginBottom: 12 }}>Último ping: {d.ultimo_ping}</div>}
                     <div style={{ display: 'flex', gap: 6 }}>
                       <Btn variant={connected ? 'success' : 'ghost'} small icon={connected ? <CheckCircle size={12} /> : <Zap size={12} />}>{connected ? 'Conectado' : 'Reconectar'}</Btn>
                       <Btn variant="ghost" small icon={<Settings size={12} />}>Config.</Btn>
