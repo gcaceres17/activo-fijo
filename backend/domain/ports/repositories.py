@@ -12,6 +12,7 @@ from uuid import UUID
 from domain.entities import (
     Activo, Grupo, Clase, Sucursal, RubroContable,
     Asignacion, Mantenimiento, AuditLog, Dispositivo, Usuario,
+    TenantSettings, TenantFeature,
 )
 
 
@@ -233,7 +234,37 @@ class UsuarioRepositoryPort(ABC):
     async def get_by_id(self, id: UUID) -> Optional[Usuario]: ...
 
     @abstractmethod
+    async def list(self, tenant_id: UUID) -> List[Usuario]: ...
+
+    @abstractmethod
     async def create(self, usuario: Usuario, password_hash: str) -> Usuario: ...
 
     @abstractmethod
+    async def update(self, usuario: Usuario) -> Usuario: ...
+
+    @abstractmethod
     async def update_ultimo_login(self, id: UUID) -> None: ...
+
+    @abstractmethod
+    async def soft_delete(self, id: UUID, tenant_id: UUID) -> None: ...
+
+
+class TenantSettingsRepositoryPort(ABC):
+    @abstractmethod
+    async def get(self, tenant_id: UUID) -> TenantSettings: ...
+
+    @abstractmethod
+    async def upsert(self, settings: TenantSettings) -> TenantSettings: ...
+
+
+class TenantFeaturesRepositoryPort(ABC):
+    @abstractmethod
+    async def list(self, tenant_id: UUID) -> List[TenantFeature]: ...
+
+    @abstractmethod
+    async def upsert(self, feature: TenantFeature) -> TenantFeature: ...
+
+    async def is_enabled(self, tenant_id: UUID, feature: str) -> bool:
+        features = await self.list(tenant_id)
+        match = next((f for f in features if f.feature == feature), None)
+        return match.habilitado if match else False

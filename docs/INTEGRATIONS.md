@@ -1,46 +1,102 @@
-# INTEGRATIONS.md — Integraciones Externas: Activo Fijo CLT
+# INTEGRATIONS.md — Integraciones: Activo Fijo CLT v2.0
 
-## Integraciones en scope de la POC v1
+> Actualizado post-reunión Banco Continental, 12 de mayo de 2026.
 
-### INT-01 — Generación QR (local, sin integración externa)
+## 1. Finansys (ERP) — Fase 1: Solo Lectura
 
-**Port:** `QRServicePort`
-**Tipo:** Librería Python (qrcode + Pillow), sin red externa
-**Uso:** Generar PNG y ZPL para activos en jornadas de inventario
+| Campo | Detalle |
+|-------|---------|
+| Propósito | Sincronizar catálogo de rubros contables |
+| Dirección | Finansys → Sistema (unidireccional) |
+| Tipo | API REST (preferido) / Acceso directo a BD (alternativo) |
+| Frecuencia | Bajo demanda (manual) o job automático configurable |
+| Fase 2 | Escritura de asientos de depreciación |
+| Estado | ⚠️ PENDIENTE: confirmar API REST o BD con referente técnico |
 
-**Mock en POC:** No aplica — la librería funciona offline
-**Producción:** Misma implementación, agregar parámetros de impresora Zebra por tenant
-
----
-
-### INT-02 — Storage de archivos (fotos y documentos)
-
-**Port:** `StoragePort`
-**Tipo:** Sistema de archivos local (POC) → S3-compatible (producción)
-
-**Mock (`LocalStorageAdapter`):**
+### Adapter interface
 ```python
-async def upload(self, tenant_id, filename, content, content_type) -> str:
-    path = f"./storage/{tenant_id}/{filename}"
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
-    Path(path).write_bytes(content)
-    return f"/static/{tenant_id}/{filename}"
+class FinansysPort(ABC):
+    @abstractmethod
+    async def get_rubros_contables(self) -> List[RubroContableDTO]: ...
+    
+    # Fase 2
+    @abstractmethod
+    async def registrar_asiento_depreciacion(self, data: AsientoDTO) -> str: ...
 ```
 
-**Producción (`S3StorageAdapter`):**
-- Usar boto3 / MinIO client
-- Cambiar inyección en `main.py`, sin tocar use cases
+### Implementaciones
+- `FinansysRESTAdapter` — si Finansys expone API REST
+- `FinansysDBAdapter` — si la integración es vía acceso directo a base de datos
 
 ---
 
-## ⚠️ Integraciones PENDIENTES para producción (fuera de scope POC)
+## 2. Active Directory (Auth) — Opcional
 
-| Sistema | Descripción | Estado |
-|---------|-------------|--------|
-| Core bancario Continental | Auth centralizada, sync de empleados y centros de costo | ⚠️ PENDIENTE |
-| Sistema contable | Exportar asientos de depreciación mensual automáticamente | ⚠️ PENDIENTE |
-| Directorio LDAP/AD | Login con credenciales corporativas | ⚠️ PENDIENTE |
-| Impresoras Zebra (red) | Imprimir etiquetas QR vía ZPL sobre TCP/IP | ⚠️ PENDIENTE |
-| Email (SMTP) | Notificaciones de mantenimientos programados | ⚠️ PENDIENTE |
+| Campo | Detalle |
+|-------|---------|
+| Propósito | Autenticación centralizada SSO del banco |
+| Dirección | AD → Sistema (autenticación) |
+| Protocolo | LDAP / OAuth2 / SAML (a confirmar con TI banco) |
+| Estado | ⚠️ PENDIENTE: confirmar AD vs. usuarios propios del sistema |
 
-**Nota de arquitectura:** Gracias a los ports, todas estas integraciones se agregan implementando un nuevo Adapter sin modificar el dominio ni los use cases. Este es el beneficio clave de la arquitectura hexagonal.
+### Adapter interface
+```python
+class AuthPort(ABC):
+    @abstractmethod
+    async def autenticar(self, email: str, password: str) -> AuthResult: ...
+    
+    @abstractmethod
+    async def validar_token(self, token: str) -> TokenPayload: ...
+```
+
+### Implementaciones
+- `LocalAuthAdapter` — JWT propio del sistema (usuario/contraseña)
+- `ADAuthAdapter` — Delegación a Active Directory del banco
+
+---
+
+## 3. Brother P950NW (Dispositivo)
+
+| Campo | Detalle |
+|-------|---------|
+| Propósito | Impresión de etiquetas QR de activos |
+| Protocolo | SDK Brother b-PAC (HTTP) o raw TCP puerto 9100 |
+| Conectividad | WiFi LAN — impresora y servidor en la misma red |
+| Cinta | TZe 24mm Strong Adhesive (amarilla) — actual del banco |
+| Fallback | Descarga PNG/PDF del QR si la impresora no está disponible |
+
+### Adapter interface
+```python
+class PrinterPort(ABC):
+    @abstractmethod
+    async def imprimir_etiqueta(self, activo: Activo, impresora_id: UUID) -> PrintResult: ...
+    
+    @abstractmethod
+    async def ping(self, ip: str) -> bool: ...
+    
+    @abstractmethod
+    async def get_status(self, ip: str) -> PrinterStatus: ...
+```
+
+### Implementación
+- `BrotherP950Adapter` — SDK b-PAC o raw TCP/9100
+
+---
+
+## 4. QR Generator (Interno)
+
+| Campo | Detalle |
+|-------|---------|
+| Propósito | Generación de imagen QR para cada activo |
+| Librería | `qrcode` Python (sin red externa, funciona offline) |
+| Formato output | PNG (almacenado en storage del sistema) |
+| Contenido | Código compuesto del activo + nombre abreviado |
+
+---
+
+## 5. Storage (Imágenes y QR)
+
+| Adapter | Uso |
+|---------|-----|
+| `LocalStorageAdapter` | POC y desarrollo (archivos en `./storage/`) |
+| `S3StorageAdapter` | Producción (compatible S3: AWS, MinIO on-premise) |

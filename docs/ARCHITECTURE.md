@@ -1,92 +1,79 @@
-# ARCHITECTURE.md — Activo Fijo CLT
+# ARCHITECTURE.md — Activo Fijo CLT (v2.0 — Banco Continental)
+
+> ⚠️ Actualizado post-reunión Banco Continental, 12 de mayo de 2026.
+> Reemplaza la versión anterior basada en el POC inicial de CLT.
 
 ## 1. Stack tecnológico
 
-| Capa | Tecnología | Versión | Justificación |
-|------|-----------|---------|---------------|
-| Frontend | Next.js (App Router) | 14 | SSR, TypeScript, routing file-based, RSC |
+| Capa | Tecnología | Versión | Notas |
+|------|-----------|---------|-------|
+| Frontend web | Next.js (App Router) + TypeScript + Tailwind CSS | 14 | SSR, RSC, design system CLT |
+| App mobile | Flutter (iOS + Android nativos) | 3.x | POC en PWA; producción en Flutter nativo |
 | Backend | FastAPI + Python | 3.12 | Async nativo, tipado estricto, OpenAPI automático |
-| Base de datos | PostgreSQL | 15 | ACID, RLS, extensiones (uuid-ossp, pgcrypto) |
-| ORM | asyncpg + SQLAlchemy Core | 2.x | Queries explícitas, control total, async |
-| Auth | JWT (python-jose) | — | Token stateless, compatible con core bancario |
-| Contenedores | Docker Compose | — | Deploy reproducible en cualquier entorno |
-| Frontend CSS | Tailwind CSS | 3.4 | Utility-first, design system CLT |
+| Base de datos | PostgreSQL 15 (preferido) / Oracle (alternativo) | 15 | A confirmar con TI banco |
+| Auth | JWT propio + adaptador AD (opcional) | — | Desacoplado del proveedor de identidad |
+| Contenedores | Docker + Kubernetes (k8s) | — | Orquestación on-premise del banco |
+| CI/CD | Azure DevOps | — | Pipeline existente en el banco |
+| Almacenamiento | LocalStorageAdapter (POC) / S3Adapter (producción) | — | Imágenes de activos y QR |
+| Impresora | Brother P950NW via SDK b-PAC / HTTP TCP 9100 | — | Etiquetas QR TZe WiFi |
 
 ## 2. Patrón Arquitectónico — Hexagonal (Ports & Adapters)
 
 ```
 activo-fijo/backend/
 ├── domain/               ← Entidades + Ports (CERO dependencias externas)
-│   ├── entities/         ← Activo, Categoria, CentroCosto, Asignacion,
-│   │                        Mantenimiento, AuditLog, Dispositivo, Usuario
+│   ├── entities/         ← Activo, Categoria, Grupo, Clase, Sucursal,
+│   │                        RubroContable, Asignacion, Jornada, Incidencia,
+│   │                        Transferencia, Dispositivo, AuditLog, Usuario
 │   └── ports/            ← Interfaces abstractas (repositories + services)
 │
 ├── application/          ← Use Cases (solo depende de domain/)
-│   └── use_cases/        ← ActivoUC, AsignacionUC, MantenimientoUC, etc.
+│   └── use_cases/        ← ActivoUC, JornadaUC, IncidenciaUC,
+│                            TransferenciaUC, DispositivoUC, etc.
 │
 ├── infrastructure/       ← Implementaciones concretas
-│   ├── repositories/     ← PostgreSQL via asyncpg
-│   ├── database/         ← Connection pool, migrations runner
-│   └── external/         ← QR generator, file storage adapters
+│   ├── repositories/     ← PostgreSQL/Oracle via asyncpg
+│   ├── database/         ← Connection pool, migrations
+│   └── external/         ← QR generator, storage adapters,
+│                            BrotherPrinterAdapter, FinansysAdapter,
+│                            ADAuthAdapter
 │
 └── adapters/             ← Entry (FastAPI) y Exit (HTTP clients)
     ├── api/              ← Routers FastAPI + Schemas Pydantic v2
     └── http/             ← Clientes HTTP para integraciones externas
 ```
 
-**Regla cardinal**: El dominio no importa nada de infrastructure ni adapters. Los use cases no conocen FastAPI ni PostgreSQL.
+## 3. Multi-tenant
 
-### Flujo de una request:
+Todos los datos están particionados por `tenant_id` proveniente del JWT.
+- El `sysadmin CLT` gestiona tenants; el `admin banco` gestiona su propio tenant.
+- Feature flags se almacenan por tenant en la tabla `tenant_config`.
+- Banco Continental = Tenant inicial del piloto.
 
-```
-HTTP Request
-    → FastAPI Router (adapter/api)
-        → Pydantic Schema (validación)
-            → Use Case (application/)
-                → Repository Port (domain/ports/)
-                    → PostgreSQL Repository (infrastructure/)
-                        → PostgreSQL 15
-```
+## 4. Módulos del sistema
 
-## 3. ADRs — Architecture Decision Records
+| Módulo | Descripción |
+|--------|-------------|
+| Auth & Usuarios | JWT, roles RBAC, adaptador AD opcional |
+| Configuración | Grupos, clases, sucursales, rubros, feature flags, código compuesto |
+| Gestión de Activos | CRUD, código compuesto, QR, depreciación SLN, imagen |
+| Migración de Datos | Import masivo Excel/CSV |
+| Jornadas de Inventario | Multi-sucursal, conciliación, reporte cierre |
+| App Mobile Flutter | Relevamiento, escaneo QR, incidencias rápidas |
+| Incidencias | Flujo parametrizable, estados, historial |
+| Transferencias | Entre sucursales/responsables, aprobación configurable |
+| Dashboard & Alertas | KPIs, alertas, búsqueda rápida |
+| Dispositivos | Brother P950NW, móviles relevadores |
+| Integración Finansys | Lectura rubros (Fase 1); escritura asientos (Fase 2) |
+| AuditLog | Append-only, todas las acciones |
 
-| # | Decisión | Alternativas | Elección | Consecuencias |
-|---|---------|-------------|----------|---------------|
-| ADR-01 | ORM vs Query Builder | SQLAlchemy ORM, Django ORM | asyncpg + SQLAlchemy Core | Control total de SQL, async nativo, sin magic |
-| ADR-02 | Auth strategy | Supabase Auth, OAuth2 externo | JWT propio (python-jose) | Sin dependencia de Supabase, integrable con core bancario |
-| ADR-03 | Arquitectura frontend | SPA React puro, Vue.js | Next.js 14 App Router | SSR para tablas densas, API Routes para BFF |
-| ADR-04 | Depreciation engine | Excel export, tercero | Cálculo lineal propio en dominio | Lógica en domain/, sin dependencias, testeable unitariamente |
-| ADR-05 | QR generation | Librería tercero, API externa | `qrcode` Python en infrastructure | Offline-capable, control de formato para impresoras Zebra |
-| ADR-06 | Soft delete | Hard delete, archive table | Campo `deleted_at TIMESTAMPTZ` | Auditoría completa, reversible, compatible con RLS |
-| ADR-07 | Depreciation model | Suma de dígitos, doble declinante | Línea recta (SLN) | Requerimiento contable paraguayo, NIIF simplificadas |
-| ADR-08 | Multi-tenant | Schema por empresa, DB por empresa | `tenant_id UUID` en cada tabla | Un deploy, múltiples empresas del holding Continental |
+## 5. Reglas cardinales de arquitectura
 
-## 4. Principios SOLID aplicados
-
-- **S** — Single Responsibility: cada use case tiene una sola razón de cambio (ej: `RegistrarActivoUseCase` solo registra activos)
-- **O** — Open/Closed: ports son interfaces; agregar PostgreSQL, MongoDB o SAP no toca el dominio
-- **L** — Liskov: `PostgreSQLActivoRepository` cumple el contrato de `ActivoRepositoryPort` sin sorpresas
-- **I** — Interface Segregation: `ActivoRepositoryPort` separado de `CategoriaRepositoryPort`; los UC solo reciben lo que usan
-- **D** — Dependency Inversion: los use cases reciben los ports por inyección; infrastructure no contamina application
-
-## 5. Seguridad
-
-- Autenticación: JWT Bearer tokens, expiración 8h, refresh tokens
-- Autorización: RBAC en capa de use case (`admin` único rol en v1)
-- PostgreSQL: Row Level Security habilitado en todas las tablas con `tenant_id`
-- Passwords: bcrypt hash con salt (nunca texto plano)
-- Audit trail: toda modificación genera entrada en `audit_logs` (trigger + use case)
-- QR codes: contienen solo el `id` del activo (UUID), no datos sensibles
-
-## 6. Escalabilidad hacia producción
-
-```
-POC (actual)          → Producción (holding Continental)
-─────────────────────────────────────────────────────────
-Docker Compose        → Kubernetes / ECS
-PostgreSQL local      → RDS / Aurora PostgreSQL
-JWT propio            → OAuth2 del core bancario
-Mock storage          → S3 / MinIO para fotos y documentos
-QR local              → Zebra ZPL directo via driver
-Single tenant         → Multi-tenant (tenant_id ya en schema)
-```
+- El dominio NO importa nada de `infrastructure/` ni `adapters/`
+- Los use cases NO conocen FastAPI ni PostgreSQL/Oracle
+- NO usar ORMs que oculten el SQL (no SQLAlchemy ORM session-based)
+- NO hardcodear `tenant_id` — siempre viene del JWT
+- NO eliminar físicamente registros — siempre soft delete con `deleted_at`
+- NO modificar AuditLogs existentes
+- `AuthProvider` es intercambiable: `LocalAuthAdapter` o `ADAuthAdapter`
+- `DatabaseAdapter` es intercambiable: `PostgreSQLAdapter` o `OracleAdapter`

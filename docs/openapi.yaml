@@ -1,719 +1,96 @@
 openapi: "3.1.0"
 info:
-  title: Activo Fijo API — CLT S.A.
-  version: "1.0.0"
+  title: "Activo Fijo CLT API"
+  version: "2.0.0"
   description: |
-    API REST para el Sistema de Gestión de Activos Fijos de CLT S.A.
-    Arquitectura Hexagonal · FastAPI · PostgreSQL 15
-  contact:
-    name: CLT — Equipo de Desarrollo
-    email: desarrollo@clt.com.py
+    API del Sistema de Gestión de Activos Fijos — CLT.
+    Versión 2.0 post-reunión Banco Continental (12 mayo 2026).
+    ⚠️ Este es un stub. El contrato completo se genera con el skill /sdd.
 
 servers:
-  - url: http://localhost:8000
-    description: Desarrollo local
+  - url: /api/v2
 
-security:
-  - bearerAuth: []
-
-components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-
-  schemas:
-    # ── Auth ──────────────────────────────────────────────
-    LoginRequest:
-      type: object
-      required: [email, password]
-      properties:
-        email: { type: string, format: email }
-        password: { type: string, minLength: 6 }
-
-    LoginResponse:
-      type: object
-      properties:
-        access_token: { type: string }
-        token_type: { type: string, example: bearer }
-        expires_in: { type: integer, example: 28800 }
-        usuario:
-          $ref: '#/components/schemas/UsuarioResponse'
-
-    # ── Activo ────────────────────────────────────────────
-    ActivoCreate:
-      type: object
-      required: [nombre, categoria_id, valor_adquisicion]
-      properties:
-        nombre: { type: string, maxLength: 300 }
-        categoria_id: { type: string, format: uuid }
-        marca: { type: string, maxLength: 100 }
-        modelo: { type: string, maxLength: 100 }
-        numero_serie: { type: string, maxLength: 150 }
-        fecha_compra: { type: string, format: date }
-        valor_adquisicion: { type: number, minimum: 0 }
-        vida_util_años: { type: integer, minimum: 1, default: 5 }
-        valor_residual: { type: number, minimum: 0, default: 0 }
-        area: { type: string }
-        centro_costo_id: { type: string, format: uuid }
-        responsable: { type: string }
-        ubicacion: { type: string }
-        foto_url: { type: string }
-
-    ActivoUpdate:
-      type: object
-      properties:
-        nombre: { type: string }
-        marca: { type: string }
-        modelo: { type: string }
-        numero_serie: { type: string }
-        fecha_compra: { type: string, format: date }
-        valor_adquisicion: { type: number, minimum: 0 }
-        vida_util_años: { type: integer, minimum: 1 }
-        valor_residual: { type: number, minimum: 0 }
-        estado:
-          type: string
-          enum: [activo, en_mantenimiento, dado_de_baja, reservado]
-        area: { type: string }
-        centro_costo_id: { type: string, format: uuid }
-        responsable: { type: string }
-        ubicacion: { type: string }
-        foto_url: { type: string }
-
-    ActivoResponse:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        codigo: { type: string, example: ACT-0001 }
-        nombre: { type: string }
-        categoria_id: { type: string, format: uuid }
-        categoria_nombre: { type: string }
-        marca: { type: string }
-        modelo: { type: string }
-        numero_serie: { type: string }
-        fecha_compra: { type: string, format: date }
-        valor_adquisicion: { type: number }
-        vida_util_años: { type: integer }
-        valor_residual: { type: number }
-        depreciacion_anual: { type: number }
-        depreciacion_acumulada: { type: number }
-        valor_libro_actual: { type: number }
-        estado:
-          type: string
-          enum: [activo, en_mantenimiento, dado_de_baja, reservado]
-        area: { type: string }
-        centro_costo_id: { type: string, format: uuid }
-        centro_costo_nombre: { type: string }
-        responsable: { type: string }
-        ubicacion: { type: string }
-        foto_url: { type: string }
-        documentos:
-          type: array
-          items: { type: string }
-        created_at: { type: string, format: date-time }
-        updated_at: { type: string, format: date-time }
-
-    PaginatedActivos:
-      type: object
-      properties:
-        items:
-          type: array
-          items: { $ref: '#/components/schemas/ActivoResponse' }
-        total: { type: integer }
-        page: { type: integer }
-        page_size: { type: integer }
-        total_pages: { type: integer }
-
-    ActivoKPIs:
-      type: object
-      properties:
-        total_activos: { type: integer }
-        en_mantenimiento: { type: integer }
-        dados_de_baja: { type: integer }
-        reservados: { type: integer }
-        valor_total_cartera: { type: number }
-        depreciacion_acumulada_total: { type: number }
-        valor_libro_total: { type: number }
-        por_categoria:
-          type: array
-          items:
-            type: object
-            properties:
-              categoria_id: { type: string, format: uuid }
-              nombre: { type: string }
-              total: { type: integer }
-              valor: { type: number }
-
-    # ── Categoria ─────────────────────────────────────────
-    CategoriaCreate:
-      type: object
-      required: [nombre]
-      properties:
-        nombre: { type: string }
-        icono: { type: string, default: package }
-        color_hex: { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
-        vida_util_default_años: { type: integer, minimum: 1, default: 5 }
-
-    CategoriaResponse:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        nombre: { type: string }
-        icono: { type: string }
-        color_hex: { type: string }
-        vida_util_default_años: { type: integer }
-        total_activos: { type: integer }
-        activos_activos: { type: integer }
-        activos_baja: { type: integer }
-
-    # ── CentroCosto ───────────────────────────────────────
-    CentroCostoCreate:
-      type: object
-      required: [codigo, nombre]
-      properties:
-        codigo: { type: string, maxLength: 20 }
-        nombre: { type: string, maxLength: 150 }
-
-    CentroCostoResponse:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        codigo: { type: string }
-        nombre: { type: string }
-
-    # ── Asignacion ────────────────────────────────────────
-    AsignacionCreate:
-      type: object
-      required: [activo_id, empleado_nombre, area, fecha_asignacion]
-      properties:
-        activo_id: { type: string, format: uuid }
-        empleado_nombre: { type: string }
-        empleado_cedula: { type: string }
-        area: { type: string }
-        centro_costo_id: { type: string, format: uuid }
-        fecha_asignacion: { type: string, format: date }
-        observaciones: { type: string }
-
-    AsignacionResponse:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        activo_id: { type: string, format: uuid }
-        activo_codigo: { type: string }
-        activo_nombre: { type: string }
-        empleado_nombre: { type: string }
-        empleado_cedula: { type: string }
-        area: { type: string }
-        centro_costo_id: { type: string, format: uuid }
-        centro_costo_nombre: { type: string }
-        fecha_asignacion: { type: string, format: date }
-        fecha_baja: { type: string, format: date }
-        observaciones: { type: string }
-        estado:
-          type: string
-          enum: [vigente, baja]
-        created_at: { type: string, format: date-time }
-
-    # ── Mantenimiento ─────────────────────────────────────
-    MantenimientoCreate:
-      type: object
-      required: [activo_id, tipo, descripcion, tecnico, fecha_inicio]
-      properties:
-        activo_id: { type: string, format: uuid }
-        tipo:
-          type: string
-          enum: [preventivo, correctivo, predictivo]
-        descripcion: { type: string }
-        tecnico: { type: string }
-        proveedor: { type: string }
-        fecha_inicio: { type: string, format: date }
-        fecha_estimada_fin: { type: string, format: date }
-        costo: { type: number, minimum: 0, default: 0 }
-
-    MantenimientoUpdate:
-      type: object
-      properties:
-        estado:
-          type: string
-          enum: [programado, en_proceso, completado, cancelado]
-        fecha_fin_real: { type: string, format: date }
-        costo: { type: number, minimum: 0 }
-        descripcion: { type: string }
-
-    MantenimientoResponse:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        activo_id: { type: string, format: uuid }
-        activo_codigo: { type: string }
-        activo_nombre: { type: string }
-        tipo: { type: string }
-        descripcion: { type: string }
-        tecnico: { type: string }
-        proveedor: { type: string }
-        fecha_inicio: { type: string, format: date }
-        fecha_estimada_fin: { type: string, format: date }
-        fecha_fin_real: { type: string, format: date }
-        costo: { type: number }
-        estado: { type: string }
-        created_at: { type: string, format: date-time }
-
-    # ── AuditLog ──────────────────────────────────────────
-    AuditLogResponse:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        fecha_hora: { type: string, format: date-time }
-        usuario_email: { type: string }
-        accion: { type: string }
-        entidad: { type: string }
-        entidad_id: { type: string, format: uuid }
-        detalle: { type: string }
-        ip_origen: { type: string }
-
-    # ── Dispositivo ───────────────────────────────────────
-    DispositivoCreate:
-      type: object
-      required: [nombre, tipo, protocolo]
-      properties:
-        nombre: { type: string }
-        tipo:
-          type: string
-          enum: [impresora, lector_qr, lector_barcode]
-        protocolo:
-          type: string
-          enum: [usb, tcp_ip, bluetooth, usb_hid]
-        driver: { type: string }
-        ip_address: { type: string }
-
-    DispositivoResponse:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        nombre: { type: string }
-        tipo: { type: string }
-        protocolo: { type: string }
-        driver: { type: string }
-        ip_address: { type: string }
-        estado: { type: string }
-        ultima_conexion: { type: string, format: date-time }
-
-    # ── Usuario ───────────────────────────────────────────
-    UsuarioResponse:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        email: { type: string }
-        nombre_completo: { type: string }
-        rol: { type: string }
-        activo: { type: boolean }
-
-    # ── Errors ────────────────────────────────────────────
-    ErrorResponse:
-      type: object
-      properties:
-        detail: { type: string }
-        code: { type: string }
+tags:
+  - name: auth
+  - name: activos
+  - name: jornadas
+  - name: incidencias
+  - name: transferencias
+  - name: dispositivos
+  - name: configuracion
+  - name: dashboard
 
 paths:
-  # ── Auth ──────────────────────────────────────────────────
-  /v1/auth/login:
+  /auth/login:
     post:
-      tags: [Auth]
-      summary: Login con email y password
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/LoginRequest' }
-      responses:
-        "200":
-          description: Token JWT generado
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/LoginResponse' }
-        "401": { description: Credenciales inválidas }
-
-  /v1/auth/me:
+      tags: [auth]
+      summary: Login (propio o AD)
+      
+  /activos:
     get:
-      tags: [Auth]
-      summary: Información del usuario autenticado
-      responses:
-        "200":
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/UsuarioResponse' }
-        "401": { description: No autenticado }
-
-  # ── Activos ──────────────────────────────────────────────
-  /v1/activos:
-    get:
-      tags: [Activos]
+      tags: [activos]
       summary: Listar activos con filtros y paginación
-      parameters:
-        - { name: page, in: query, schema: { type: integer, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, default: 20 } }
-        - { name: q, in: query, schema: { type: string } }
-        - { name: categoria_id, in: query, schema: { type: string, format: uuid } }
-        - { name: estado, in: query, schema: { type: string } }
-        - { name: centro_costo_id, in: query, schema: { type: string, format: uuid } }
-        - { name: area, in: query, schema: { type: string } }
-      responses:
-        "200":
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/PaginatedActivos' }
     post:
-      tags: [Activos]
-      summary: Registrar nuevo activo
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/ActivoCreate' }
-      responses:
-        "201":
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ActivoResponse' }
-        "400": { description: Validación fallida }
-        "409": { description: Serie duplicada }
-
-  /v1/activos/kpis:
-    get:
-      tags: [Activos]
-      summary: KPIs del dashboard
-      responses:
-        "200":
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ActivoKPIs' }
-
-  /v1/activos/depreciacion:
-    get:
-      tags: [Activos]
-      summary: Tabla de depreciación de todos los activos
-      parameters:
-        - { name: categoria_id, in: query, schema: { type: string, format: uuid } }
-        - { name: area, in: query, schema: { type: string } }
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  items: { type: array }
-                  totales: { type: object }
-
-  /v1/activos/{id}:
-    get:
-      tags: [Activos]
-      summary: Detalle de activo con asignaciones y mantenimientos
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-      responses:
-        "200":
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ActivoResponse' }
-        "404": { description: Activo no encontrado }
-    put:
-      tags: [Activos]
-      summary: Actualizar activo completo
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-      requestBody:
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/ActivoUpdate' }
-      responses:
-        "200":
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ActivoResponse' }
-    delete:
-      tags: [Activos]
-      summary: Dar de baja activo (soft delete)
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-      responses:
-        "200": { description: Activo dado de baja }
-        "409": { description: Tiene asignación vigente activa }
-
-  /v1/activos/{id}/qr:
-    get:
-      tags: [Activos]
-      summary: Generar QR PNG del activo
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: format, in: query, schema: { type: string, enum: [png, zpl], default: png } }
-      responses:
-        "200":
-          content:
-            image/png:
-              schema: { type: string, format: binary }
-
-  /v1/activos/{id}/foto:
+      tags: [activos]
+      summary: Crear activo (wizard completo)
+      
+  /activos/{id}/qr/imprimir:
     post:
-      tags: [Activos]
-      summary: Subir foto del activo
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-      requestBody:
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                foto: { type: string, format: binary }
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  foto_url: { type: string }
-
-  # ── Categorías ────────────────────────────────────────────
-  /v1/categorias:
-    get:
-      tags: [Categorías]
-      summary: Listar categorías
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                type: array
-                items: { $ref: '#/components/schemas/CategoriaResponse' }
+      tags: [activos]
+      summary: Enviar etiqueta QR a impresora Brother P950NW
+      
+  /activos/importar:
     post:
-      tags: [Categorías]
-      summary: Crear categoría
-      requestBody:
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/CategoriaCreate' }
-      responses:
-        "201":
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/CategoriaResponse' }
+      tags: [activos]
+      summary: Importar activos desde Excel/CSV
 
-  /v1/categorias/{id}:
-    put:
-      tags: [Categorías]
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-      requestBody:
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/CategoriaCreate' }
-      responses:
-        "200":
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/CategoriaResponse' }
-
-  # ── Centros de Costo ──────────────────────────────────────
-  /v1/centros-costo:
+  /jornadas:
     get:
-      tags: [CentrosCosto]
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                type: array
-                items: { $ref: '#/components/schemas/CentroCostoResponse' }
+      tags: [jornadas]
+      summary: Listar jornadas
     post:
-      tags: [CentrosCosto]
-      requestBody:
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/CentroCostoCreate' }
-      responses:
-        "201":
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/CentroCostoResponse' }
-
-  # ── Asignaciones ──────────────────────────────────────────
-  /v1/asignaciones:
-    get:
-      tags: [Asignaciones]
-      parameters:
-        - { name: page, in: query, schema: { type: integer, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, default: 20 } }
-        - { name: estado, in: query, schema: { type: string } }
-        - { name: activo_id, in: query, schema: { type: string, format: uuid } }
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items: { $ref: '#/components/schemas/AsignacionResponse' }
-                  total: { type: integer }
-    post:
-      tags: [Asignaciones]
-      requestBody:
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/AsignacionCreate' }
-      responses:
-        "201":
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/AsignacionResponse' }
-        "409": { description: Activo ya tiene asignación vigente }
-
-  /v1/asignaciones/{id}/baja:
+      tags: [jornadas]
+      summary: Crear jornada multi-sucursal
+      
+  /jornadas/{id}/items/{item_id}/registrar:
     patch:
-      tags: [Asignaciones]
-      summary: Dar de baja asignación (devolución)
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-      responses:
-        "200":
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/AsignacionResponse' }
+      tags: [jornadas]
+      summary: Registrar estado de activo en jornada (desde app mobile)
 
-  # ── Mantenimientos ────────────────────────────────────────
-  /v1/mantenimientos:
+  /incidencias:
     get:
-      tags: [Mantenimientos]
-      parameters:
-        - { name: page, in: query, schema: { type: integer, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, default: 20 } }
-        - { name: estado, in: query, schema: { type: string } }
-        - { name: activo_id, in: query, schema: { type: string, format: uuid } }
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items: { $ref: '#/components/schemas/MantenimientoResponse' }
-                  total: { type: integer }
+      tags: [incidencias]
     post:
-      tags: [Mantenimientos]
-      requestBody:
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/MantenimientoCreate' }
-      responses:
-        "201":
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/MantenimientoResponse' }
+      tags: [incidencias]
+      summary: Registrar incidencia
 
-  /v1/mantenimientos/{id}:
+  /transferencias:
+    post:
+      tags: [transferencias]
+      summary: Solicitar transferencia
+      
+  /transferencias/{id}/aprobar:
     patch:
-      tags: [Mantenimientos]
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-      requestBody:
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/MantenimientoUpdate' }
-      responses:
-        "200":
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/MantenimientoResponse' }
-
-  # ── Audit Logs ────────────────────────────────────────────
-  /v1/audit-logs:
+      tags: [transferencias]
+      
+  /dispositivos:
     get:
-      tags: [Auditoría]
-      parameters:
-        - { name: page, in: query, schema: { type: integer, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, default: 50 } }
-        - { name: usuario_email, in: query, schema: { type: string } }
-        - { name: accion, in: query, schema: { type: string } }
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items: { $ref: '#/components/schemas/AuditLogResponse' }
-                  total: { type: integer }
-
-  # ── Dispositivos ──────────────────────────────────────────
-  /v1/dispositivos:
-    get:
-      tags: [Dispositivos]
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                type: array
-                items: { $ref: '#/components/schemas/DispositivoResponse' }
+      tags: [dispositivos]
     post:
-      tags: [Dispositivos]
-      requestBody:
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/DispositivoCreate' }
-      responses:
-        "201":
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/DispositivoResponse' }
+      tags: [dispositivos]
+      summary: Registrar dispositivo (Brother P950NW o móvil)
+      
+  /dispositivos/{id}/test:
+    post:
+      tags: [dispositivos]
+      summary: Test de conexión al dispositivo
 
-  /v1/dispositivos/{id}:
-    put:
-      tags: [Dispositivos]
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-      requestBody:
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/DispositivoCreate' }
-      responses:
-        "200":
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/DispositivoResponse' }
+  /configuracion/rubros/sync:
+    post:
+      tags: [configuracion]
+      summary: Sincronizar rubros contables desde Finansys
 
-  # ── Reportes ──────────────────────────────────────────────
-  /v1/reportes/inventario:
+  /dashboard/kpis:
     get:
-      tags: [Reportes]
-      summary: Exportar inventario completo
-      parameters:
-        - { name: formato, in: query, schema: { type: string, enum: [csv, xlsx], default: xlsx } }
-      responses:
-        "200":
-          content:
-            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
-              schema: { type: string, format: binary }
-
-  /v1/reportes/depreciacion:
-    get:
-      tags: [Reportes]
-      summary: Exportar reporte de depreciación
-      parameters:
-        - { name: año, in: query, schema: { type: integer } }
-        - { name: formato, in: query, schema: { type: string, enum: [csv, xlsx], default: xlsx } }
-      responses:
-        "200":
-          content:
-            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
-              schema: { type: string, format: binary }
+      tags: [dashboard]
+      summary: KPIs operativos del tenant

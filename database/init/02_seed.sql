@@ -12,7 +12,7 @@ VALUES (
     '22222222-2222-2222-2222-222222222222',
     '11111111-1111-1111-1111-111111111111',
     'giovanni.caceres@clt.com.py',
-    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LpOd7R7Ib3bQyA5Ue',
+    crypt('Admin1234', gen_salt('bf', 12)),
     'Giovanni Cáceres',
     'admin'
 ) ON CONFLICT DO NOTHING;
@@ -28,13 +28,13 @@ ON CONFLICT DO NOTHING;
 
 INSERT INTO public.usuarios (id, tenant_id, email, password_hash, nombre_completo, rol) VALUES
 ('00000000-0000-0000-0000-000000000101','00000000-0000-0000-0000-000000000001',
- 'admin@bancontinental.com.py','$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LpOd7R7Ib3bQyA5Ue',
+ 'admin@bancontinental.com.py', crypt('Admin1234', gen_salt('bf', 12)),
  'Administrador BCSA','admin_banco'),
 ('00000000-0000-0000-0000-000000000102','00000000-0000-0000-0000-000000000001',
- 'auditoria@bancontinental.com.py','$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LpOd7R7Ib3bQyA5Ue',
+ 'auditoria@bancontinental.com.py', crypt('Admin1234', gen_salt('bf', 12)),
  'Depto. Auditoría','auditor'),
 ('00000000-0000-0000-0000-000000000103','00000000-0000-0000-0000-000000000001',
- 'activos@bancontinental.com.py','$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LpOd7R7Ib3bQyA5Ue',
+ 'activos@bancontinental.com.py', crypt('Admin1234', gen_salt('bf', 12)),
  'Jefe de Activo Fijo','operador')
 ON CONFLICT DO NOTHING;
 
@@ -162,6 +162,31 @@ INSERT INTO public.dispositivos (id,tenant_id,nombre,tipo,modelo,ip_address,esta
 ('00000000-0007-0000-0000-000000000002','00000000-0000-0000-0000-000000000001','Honeywell CT47 — Relevador CDE','movil_relevador','CT47',NULL,'offline',NOW() - INTERVAL '3 days'),
 ('00000000-0007-0000-0000-000000000003','00000000-0000-0000-0000-000000000001','Zebra TC52 — Relevador CM','movil_relevador','TC52',NULL,'online',NOW() - INTERVAL '10 minutes'),
 ('00000000-0007-0000-0000-000000000004','00000000-0000-0000-0000-000000000001','Zebra ZT230 — Sucursal SLO','impresora_etiquetas','ZT230','192.168.20.50','desconocido',NULL)
+ON CONFLICT DO NOTHING;
+
+-- Tenant settings
+INSERT INTO public.tenant_settings (tenant_id, moneda, zona_horaria, vida_util_default_meses, prefijo_activo) VALUES
+('11111111-1111-1111-1111-111111111111', 'PYG', 'America/Asuncion', 60, 'ACT'),
+('00000000-0000-0000-0000-000000000001', 'PYG', 'America/Asuncion', 60, 'ACT')
+ON CONFLICT DO NOTHING;
+
+-- Tenant features (Banco Continental — todos habilitados para demo)
+INSERT INTO public.tenant_features (tenant_id, feature, habilitado) VALUES
+('00000000-0000-0000-0000-000000000001', 'modulo_mantenimiento',  TRUE),
+('00000000-0000-0000-0000-000000000001', 'modulo_asignaciones',   TRUE),
+('00000000-0000-0000-0000-000000000001', 'modulo_depreciacion',   TRUE),
+('00000000-0000-0000-0000-000000000001', 'exportacion_excel',     TRUE),
+('00000000-0000-0000-0000-000000000001', 'exportacion_pdf',       FALSE),
+('00000000-0000-0000-0000-000000000001', 'inventario_fisico',     FALSE),
+('00000000-0000-0000-0000-000000000001', 'integracion_contable',  FALSE),
+-- CLT S.A.
+('11111111-1111-1111-1111-111111111111', 'modulo_mantenimiento',  TRUE),
+('11111111-1111-1111-1111-111111111111', 'modulo_asignaciones',   TRUE),
+('11111111-1111-1111-1111-111111111111', 'modulo_depreciacion',   TRUE),
+('11111111-1111-1111-1111-111111111111', 'exportacion_excel',     TRUE),
+('11111111-1111-1111-1111-111111111111', 'exportacion_pdf',       TRUE),
+('11111111-1111-1111-1111-111111111111', 'inventario_fisico',     TRUE),
+('11111111-1111-1111-1111-111111111111', 'integracion_contable',  TRUE)
 ON CONFLICT DO NOTHING;
 
 -- Audit logs

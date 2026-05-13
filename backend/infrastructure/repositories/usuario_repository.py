@@ -39,6 +39,33 @@ class PostgreSQLUsuarioRepository(UsuarioRepositoryPort):
                 usuario.created_at, usuario.updated_at)
         return usuario
 
+    async def list(self, tenant_id: UUID):
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                """SELECT * FROM public.usuarios
+                   WHERE tenant_id=$1 AND deleted_at IS NULL
+                   ORDER BY nombre_completo""",
+                tenant_id)
+        return [_row(r) for r in rows]
+
+    async def update(self, usuario: Usuario) -> Usuario:
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                """UPDATE public.usuarios
+                   SET nombre_completo=$3, rol=$4, activo=$5, updated_at=NOW()
+                   WHERE id=$1 AND tenant_id=$2""",
+                usuario.id, usuario.tenant_id,
+                usuario.nombre_completo, usuario.rol, usuario.activo,
+            )
+        return usuario
+
     async def update_ultimo_login(self, id: UUID) -> None:
         async with self._pool.acquire() as conn:
             await conn.execute("UPDATE public.usuarios SET ultimo_login=NOW() WHERE id=$1", id)
+
+    async def soft_delete(self, id: UUID, tenant_id: UUID) -> None:
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE public.usuarios SET deleted_at=NOW(), activo=FALSE WHERE id=$1 AND tenant_id=$2",
+                id, tenant_id,
+            )

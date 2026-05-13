@@ -236,6 +236,31 @@ CREATE INDEX idx_dispositivos_tenant ON public.dispositivos(tenant_id);
 CREATE TRIGGER dispositivos_updated_at BEFORE UPDATE ON public.dispositivos
     FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
+-- === 006: Multi-tenant — settings y feature flags ===
+
+CREATE TABLE IF NOT EXISTS public.tenant_settings (
+    tenant_id               UUID PRIMARY KEY REFERENCES public.tenants(id) ON DELETE CASCADE,
+    logo_url                TEXT,
+    moneda                  VARCHAR(10)  NOT NULL DEFAULT 'PYG',
+    zona_horaria            VARCHAR(60)  NOT NULL DEFAULT 'America/Asuncion',
+    ano_fiscal_inicio       SMALLINT     NOT NULL DEFAULT 1
+                            CHECK (ano_fiscal_inicio BETWEEN 1 AND 12),
+    vida_util_default_meses INTEGER      NOT NULL DEFAULT 60,
+    valor_residual_pct      NUMERIC(5,4) NOT NULL DEFAULT 0.10,
+    prefijo_activo          VARCHAR(10)  NOT NULL DEFAULT 'ACT',
+    updated_at              TIMESTAMPTZ  DEFAULT NOW() NOT NULL
+);
+CREATE TRIGGER tenant_settings_updated_at BEFORE UPDATE ON public.tenant_settings
+    FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+CREATE TABLE IF NOT EXISTS public.tenant_features (
+    tenant_id   UUID        NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+    feature     VARCHAR(60) NOT NULL,
+    habilitado  BOOLEAN     NOT NULL DEFAULT TRUE,
+    PRIMARY KEY (tenant_id, feature)
+);
+CREATE INDEX idx_tenant_features ON public.tenant_features(tenant_id);
+
 -- === 005: Vista KPIs (versión mensual) ===
 
 CREATE OR REPLACE VIEW public.v_activos_kpis AS

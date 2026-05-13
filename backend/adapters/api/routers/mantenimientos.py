@@ -24,7 +24,7 @@ async def create_mantenimiento(body: MantenimientoCreate,
     current_user=Depends(get_current_user), uc=Depends(get_mantenimiento_uc)):
     try:
         m = await uc.registrar(tenant_id=current_user.tenant_id,
-                               usuario_email=current_user.email, **body.model_dump())
+                               usuario_id=current_user.id, **body.model_dump())
         return _mnt_to_dict(m)
     except (NotFoundError, ConflictError) as e:
         raise HTTPException(409 if isinstance(e, ConflictError) else 404, str(e))
@@ -34,7 +34,7 @@ async def update_mantenimiento(id: UUID, body: MantenimientoUpdate,
     current_user=Depends(get_current_user), uc=Depends(get_mantenimiento_uc)):
     try:
         if body.estado == "completado":
-            m = await uc.cerrar(id, current_user.tenant_id, current_user.email,
+            m = await uc.cerrar(id, current_user.tenant_id, current_user.id,
                                 body.fecha_fin_real, body.costo)
         else:
             mnt = await uc.obtener(id, current_user.tenant_id)

@@ -8,6 +8,7 @@ from .mantenimiento import Mantenimiento, TipoMantenimiento, EstadoMantenimiento
 from .audit_log import AuditLog, AccionAudit
 from .dispositivo import Dispositivo, TipoDispositivo, EstadoConexion
 from .usuario import Usuario, RolUsuario
+from .tenant_settings import TenantSettings, TenantFeature, FEATURES_DISPONIBLES, FEATURE_LABELS
 
 __all__ = [
     "Activo", "EstadoActivo",
@@ -20,4 +21,5 @@ __all__ = [
     "AuditLog", "AccionAudit",
     "Dispositivo", "TipoDispositivo", "EstadoConexion",
     "Usuario", "RolUsuario",
+    "TenantSettings", "TenantFeature", "FEATURES_DISPONIBLES", "FEATURE_LABELS",
 ]

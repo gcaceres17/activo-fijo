@@ -3,6 +3,7 @@ from .grupo_use_cases import GrupoUseCases
 from .sucursal_use_cases import SucursalUseCases
 from .asignacion_use_cases import AsignacionUseCases
 from .mantenimiento_use_cases import MantenimientoUseCases
+from .tenant_use_cases import TenantUseCases
 
 __all__ = [
     "ActivoUseCases",
@@ -10,4 +11,5 @@ __all__ = [
     "SucursalUseCases",
     "AsignacionUseCases",
     "MantenimientoUseCases",
+    "TenantUseCases",
 ]

@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from infrastructure.database.connection import create_pool, close_pool
 from adapters.api.routers import auth, activos, grupos, sucursales
 from adapters.api.routers import asignaciones, mantenimientos, audit_logs, dispositivos
+from adapters.api.routers import tenants
 
 
 @asynccontextmanager
@@ -40,7 +41,7 @@ app.mount("/static", StaticFiles(directory="./storage"), name="static")
 # Registrar todos los routers
 for router in [auth.router, activos.router, grupos.router, sucursales.router,
                asignaciones.router, mantenimientos.router,
-               audit_logs.router, dispositivos.router]:
+               audit_logs.router, dispositivos.router, tenants.router]:
     app.include_router(router)
 
 

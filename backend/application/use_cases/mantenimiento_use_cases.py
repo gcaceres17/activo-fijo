@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 from typing import List, Optional, Tuple
 from uuid import UUID
@@ -30,7 +30,7 @@ class MantenimientoUseCases:
     async def registrar(
         self,
         tenant_id: UUID,
-        usuario_email: str,
+        usuario_id: UUID,
         activo_id: UUID,
         tipo: str,
         descripcion: str,
@@ -65,12 +65,11 @@ class MantenimientoUseCases:
         await self._audit.append(AuditLog(
             id=uuid.uuid4(),
             tenant_id=tenant_id,
-            fecha_hora=datetime.utcnow(),
-            usuario_email=usuario_email,
+            usuario_id=usuario_id,
             accion="ALTA_MANTENIMIENTO",
             entidad="Mantenimiento",
             entidad_id=mnt.id,
-            detalle=f"Mantenimiento {tipo} registrado para {activo.codigo}: {descripcion}",
+            payload_after={"tipo": tipo, "activo_id": str(activo_id), "descripcion": descripcion},
         ))
 
         return mnt
@@ -80,7 +79,7 @@ class MantenimientoUseCases:
         self,
         id: UUID,
         tenant_id: UUID,
-        usuario_email: str,
+        usuario_id: UUID,
         fecha_fin: Optional[date] = None,
         costo_final: Optional[Decimal] = None,
     ) -> Mantenimiento:
@@ -100,12 +99,11 @@ class MantenimientoUseCases:
         await self._audit.append(AuditLog(
             id=uuid.uuid4(),
             tenant_id=tenant_id,
-            fecha_hora=datetime.utcnow(),
-            usuario_email=usuario_email,
+            usuario_id=usuario_id,
             accion="CIERRE_MANTENIMIENTO",
             entidad="Mantenimiento",
             entidad_id=id,
-            detalle=f"Mantenimiento cerrado. Costo final: {mnt.costo}",
+            payload_after={"estado": "completado", "costo": str(mnt.costo)},
         ))
 
         return mnt

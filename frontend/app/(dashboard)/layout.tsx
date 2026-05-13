@@ -1,60 +1,88 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { isAuthenticated, logout } from '@/lib/auth'
+import { isAuthenticated, logout, getUser } from '@/lib/auth'
+import { useFeatures } from '@/hooks/useFeatures'
+import { api } from '@/lib/api'
+import type { TenantSettings } from '@/types'
 import {
   LayoutDashboard, Package, TrendingDown, UserCheck,
-  Wrench, BarChart2, Tag, ShieldCheck, Settings,
+  Wrench, BarChart2, ShieldCheck, Settings,
   ChevronLeft, ChevronRight, Bell, Sun, Moon, HelpCircle, PlusCircle, MapPin, Layers,
 } from 'lucide-react'
 
-const NAV_SECTIONS = [
+const ALL_NAV_SECTIONS = [
   {
     label: 'Principal',
     items: [
-      { href: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
-      { href: '/activos',      icon: Package,         label: 'Inventario' },
-      { href: '/activos/nuevo',icon: PlusCircle,      label: 'Nuevo Activo' },
+      { href: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard',     feature: null },
+      { href: '/activos',      icon: Package,         label: 'Inventario',    feature: null },
+      { href: '/activos/nuevo',icon: PlusCircle,      label: 'Nuevo Activo',  feature: null },
     ],
   },
   {
     label: 'Gestión',
     items: [
-      { href: '/depreciacion',  icon: TrendingDown, label: 'Depreciación' },
-      { href: '/asignaciones',  icon: UserCheck,    label: 'Asignaciones' },
-      { href: '/mantenimiento', icon: Wrench,       label: 'Mantenimiento' },
+      { href: '/depreciacion',  icon: TrendingDown, label: 'Depreciación',  feature: 'modulo_depreciacion' },
+      { href: '/asignaciones',  icon: UserCheck,    label: 'Asignaciones',  feature: 'modulo_asignaciones' },
+      { href: '/mantenimiento', icon: Wrench,       label: 'Mantenimiento', feature: 'modulo_mantenimiento' },
     ],
   },
   {
     label: 'Configuración',
     items: [
-      { href: '/taxonomia',  icon: Layers,     label: 'Grupos y Clases' },
-      { href: '/sucursales', icon: MapPin,     label: 'Sucursales' },
-      { href: '/reportes',   icon: BarChart2,  label: 'Reportes' },
-      { href: '/auditoria',  icon: ShieldCheck,label: 'Auditoría' },
+      { href: '/taxonomia',  icon: Layers,     label: 'Grupos y Clases', feature: null },
+      { href: '/sucursales', icon: MapPin,     label: 'Sucursales',      feature: null },
+      { href: '/reportes',   icon: BarChart2,  label: 'Reportes',        feature: null },
+      { href: '/auditoria',  icon: ShieldCheck,label: 'Auditoría',       feature: null },
     ],
   },
   {
     label: 'Sistema',
     items: [
-      { href: '/configuracion', icon: Settings, label: 'Configuración' },
+      { href: '/configuracion', icon: Settings, label: 'Configuración', feature: null },
     ],
   },
 ]
 
 const FONT = 'var(--clt-font-display)'
 
+function initials(name: string) {
+  return name.split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase()
+}
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router   = useRouter()
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const [dark, setDark]           = useState(true)
+  const [tenantName, setTenantName] = useState('CLT S.A.')
+  const { isEnabled, loading: featuresLoading } = useFeatures()
+  const jwtUser = useMemo(() => getUser(), [])
 
   useEffect(() => {
-    if (!isAuthenticated()) router.push('/login')
+    if (!isAuthenticated()) { router.push('/login'); return }
+    api.get<TenantSettings>('/v1/tenants/me/settings')
+      .then(s => { if (s) setTenantName('CLT S.A.') })
+      .catch(() => {})
   }, [router])
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('theme-light', !dark)
+  }, [dark])
+
+  const NAV_SECTIONS = useMemo(() =>
+    ALL_NAV_SECTIONS.map(section => ({
+      ...section,
+      items: section.items.filter(item =>
+        item.feature === null || isEnabled(item.feature)
+      ),
+    })).filter(section => section.items.length > 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [featuresLoading, isEnabled]
+  )
 
   const isActive = (href: string) => {
     if (href === '/activos/nuevo') return pathname === '/activos/nuevo'
@@ -65,10 +93,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const allItems = NAV_SECTIONS.flatMap(s => s.items)
   const currentLabel = allItems.find(n => isActive(n.href))?.label ?? 'Dashboard'
+  const userInitials = jwtUser ? initials(jwtUser.nombre) : 'U'
+  const userName = jwtUser?.nombre ?? 'Usuario'
+  const userRol = jwtUser?.rol ?? 'operador'
 
   return (
     <div
-      className={`flex h-screen overflow-hidden ${dark ? '' : 'theme-light'}`}
+      className="flex h-screen overflow-hidden"
       style={{ background: 'var(--t-bg-app)' }}
     >
       {/* ── Sidebar ── */}
@@ -186,12 +217,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           }}
         >
           <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg, #6874B5, #6CBEDA)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: FONT, fontWeight: 900, fontSize: 10, color: '#fff', boxShadow: '0 0 12px rgba(104,116,181,0.4)' }}>
-            GC
+            {userInitials}
           </div>
           {!collapsed && (
             <div style={{ overflow: 'hidden', flex: 1 }}>
-              <p style={{ fontFamily: FONT, fontWeight: 700, fontSize: 12, color: 'rgba(255,255,255,0.8)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 }}>Giovanni Caceres</p>
-              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', whiteSpace: 'nowrap', margin: 0 }}>Administrador</p>
+              <p style={{ fontFamily: FONT, fontWeight: 700, fontSize: 12, color: 'rgba(255,255,255,0.8)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 }}>{userName}</p>
+              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', whiteSpace: 'nowrap', margin: 0 }}>{userRol}</p>
             </div>
           )}
         </div>
@@ -219,7 +250,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {/* Module title */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span style={{ fontFamily: FONT, fontWeight: 700, fontSize: 11, letterSpacing: '0.06em', color: 'var(--t-text-4)', whiteSpace: 'nowrap' }}>
-              CLT S.A.
+              {tenantName}
             </span>
             <span style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.08)', flexShrink: 0 }} />
             <span style={{ fontFamily: FONT, fontWeight: 700, fontSize: 12, color: 'var(--t-text-1)', whiteSpace: 'nowrap' }}>
@@ -254,7 +285,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               title="Cerrar sesión"
               style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg, #6874B5, #6CBEDA)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT, fontWeight: 900, fontSize: 11, color: '#fff', border: 'none', cursor: 'pointer' }}
             >
-              GC
+              {userInitials}
             </button>
           </div>
         </header>

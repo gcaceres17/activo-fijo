@@ -1,3 +1,32 @@
+// ── Multi-tenant ──────────────────────────────────────────────────────────────
+
+export interface TenantSettings {
+  tenant_id: string
+  logo_url: string | null
+  moneda: string
+  zona_horaria: string
+  ano_fiscal_inicio: number
+  vida_util_default_meses: number
+  valor_residual_pct: number
+  prefijo_activo: string
+}
+
+export interface TenantFeature {
+  feature: string
+  label: string
+  habilitado: boolean
+}
+
+export interface Usuario {
+  id: string
+  email: string
+  nombre_completo: string
+  rol: 'sysadmin_clt' | 'admin_banco' | 'admin' | 'operador' | 'auditor' | 'relevador'
+  activo: boolean
+}
+
+// ── Taxonomía ─────────────────────────────────────────────────────────────────
+
 export interface Grupo {
   id: string; codigo: string; nombre: string;
 }

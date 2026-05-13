@@ -65,15 +65,25 @@
 
 @layer base {
   body {
-    @apply bg-[#0d1520] text-white antialiased;
+    background: var(--t-bg-app);
+    color: var(--t-text-1);
     font-family: var(--clt-font-body);
+    -webkit-font-smoothing: antialiased;
   }
-  .theme-light body { @apply bg-[#F0F2F5] text-gray-900; }
+  ::placeholder {
+    color: var(--t-text-4);
+    opacity: 1;
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    opacity: 0.5;
+    cursor: pointer;
+    filter: invert(0.7);
+  }
 }
 
 @layer utilities {
   .scrollbar-thin::-webkit-scrollbar { width: 4px; height: 4px; }
   .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
-  .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
-  .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background: var(--t-border2); border-radius: 2px; }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: var(--t-border); }
 }

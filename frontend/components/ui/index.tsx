@@ -1,4 +1,5 @@
 'use client'
+import { createPortal } from 'react-dom'
 import { useEffect, useRef, useState, ReactNode, CSSProperties } from 'react'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -54,7 +55,7 @@ const ESTADO_LABELS: Record<string, string> = {
 }
 
 export function Badge({ estado }: { estado: string }) {
-  const s = ESTADO_COLORS[estado] ?? { bg: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', border: 'rgba(255,255,255,0.1)' }
+  const s = ESTADO_COLORS[estado] ?? { bg: 'var(--t-bg-card2)', color: 'var(--t-text-3)', border: 'var(--t-border2)' }
   const label = ESTADO_LABELS[estado] ?? estado
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 9999, background: s.bg, color: s.color, border: `1px solid ${s.border}`, fontFamily: FONT, fontWeight: 700, fontSize: 10, letterSpacing: '0.07em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
@@ -153,17 +154,117 @@ export function SearchBar({ value, onChange, placeholder }: { value: string; onC
   )
 }
 
+// ── CustomSelect (internal) ───────────────────────────────────────────────────
+
+function CustomSelect({ value, onChange, options, style: s, full }: {
+  value: string; onChange: (v: string) => void
+  options: { value: string; label: string }[]; style?: CSSProperties; full?: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const [rect, setRect] = useState<DOMRect | null>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const [uid] = useState(() => `clt_${Math.random().toString(36).slice(2, 7)}`)
+  const selected = options.find(o => o.value === value)
+
+  const toggle = () => {
+    if (!open && btnRef.current) setRect(btnRef.current.getBoundingClientRect())
+    setOpen(o => !o)
+  }
+
+  useEffect(() => {
+    if (!open) return
+    const close = (e: MouseEvent) => {
+      if ((e.target as Element).closest(`[data-clt-sel="${uid}"]`)) return
+      setOpen(false)
+    }
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    const scroll = () => { if (btnRef.current) setRect(btnRef.current.getBoundingClientRect()) }
+    document.addEventListener('mousedown', close)
+    document.addEventListener('keydown', esc)
+    window.addEventListener('scroll', scroll, true)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('keydown', esc)
+      window.removeEventListener('scroll', scroll, true)
+    }
+  }, [open, uid])
+
+  return (
+    <div data-clt-sel={uid} style={{ position: 'relative', width: full ? '100%' : undefined, display: 'inline-flex', ...s }}>
+      <button
+        ref={btnRef}
+        type="button"
+        data-clt-sel={uid}
+        onClick={toggle}
+        style={{
+          width: '100%', height: 38, minWidth: 0,
+          background: 'var(--t-bg-input)',
+          border: `1px solid ${open ? 'rgba(104,116,181,0.6)' : 'var(--t-border-input)'}`,
+          color: 'var(--t-text-1)',
+          fontFamily: 'var(--clt-font-body)', fontSize: 13,
+          padding: '0 32px 0 12px',
+          outline: 'none', cursor: 'pointer',
+          boxSizing: 'border-box', borderRadius: 0,
+          display: 'flex', alignItems: 'center',
+          textAlign: 'left', position: 'relative', overflow: 'hidden',
+          transition: 'border-color 150ms',
+        }}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0, color: value ? 'var(--t-text-1)' : 'var(--t-text-4)' }}>
+          {selected?.label ?? options[0]?.label ?? ''}
+        </span>
+        <svg width={11} height={11} viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"
+          style={{ position: 'absolute', right: 10, top: '50%', transform: `translateY(-50%) rotate(${open ? '180deg' : '0deg'})`, transition: 'transform 150ms', color: 'var(--t-text-4)', flexShrink: 0, pointerEvents: 'none' }}
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+
+      {open && rect && typeof document !== 'undefined' && createPortal(
+        <div
+          data-clt-sel={uid}
+          style={{
+            position: 'fixed', top: rect.bottom + 2, left: rect.left, width: rect.width,
+            background: 'var(--t-modal-bg)',
+            border: '1px solid var(--t-border)',
+            zIndex: 99999, maxHeight: 220, overflowY: 'auto',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+          }}
+        >
+          {options.map(o => (
+            <div
+              key={o.value}
+              data-clt-sel={uid}
+              onMouseDown={e => { e.preventDefault(); onChange(o.value); setOpen(false) }}
+              style={{
+                padding: '9px 12px', fontSize: 13,
+                fontFamily: 'var(--clt-font-body)',
+                cursor: 'pointer',
+                color: o.value === value ? '#6CBEDA' : 'var(--t-text-1)',
+                background: o.value === value ? 'rgba(108,190,218,0.08)' : 'transparent',
+                borderLeft: `2px solid ${o.value === value ? '#6CBEDA' : 'transparent'}`,
+              }}
+              onMouseEnter={e => { if (o.value !== value) (e.currentTarget as HTMLDivElement).style.background = 'var(--t-bg-hover)' }}
+              onMouseLeave={e => { if (o.value !== value) (e.currentTarget as HTMLDivElement).style.background = '' }}
+            >
+              {o.label}
+            </div>
+          ))}
+        </div>,
+        document.body
+      )}
+    </div>
+  )
+}
+
 // ── SelectDark ────────────────────────────────────────────────────────────────
 
 export function SelectDark({ value, onChange, options, style: s }: {
   value: string; onChange: (v: string) => void
   options: { value: string; label: string }[]; style?: CSSProperties
 }) {
-  return (
-    <select value={value} onChange={e => onChange(e.target.value)} style={{ height: 38, background: 'var(--t-bg-input)', border: '1px solid var(--t-border)', color: 'var(--t-text-2)', fontFamily: 'var(--clt-font-body)', fontSize: 13, padding: '0 10px', outline: 'none', cursor: 'pointer', borderRadius: 0, ...s }}>
-      {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-    </select>
-  )
+  return <CustomSelect value={value} onChange={onChange} options={options} style={{ display: 'inline-flex', ...s }} />
 }
 
 // ── Btn ───────────────────────────────────────────────────────────────────────
@@ -253,19 +354,11 @@ export function InputDark({ value, onChange, type = 'text', placeholder, require
 
 // ── SelectFieldDark ───────────────────────────────────────────────────────────
 
-export function SelectFieldDark({ value, onChange, options, required, style: s }: {
+export function SelectFieldDark({ value, onChange, options, required: _r, style: s }: {
   value: string; onChange: (v: string) => void
   options: { value: string; label: string }[]; required?: boolean; style?: CSSProperties
 }) {
-  return (
-    <select value={value} onChange={e => onChange(e.target.value)} required={required}
-      style={{ height: 38, background: 'var(--t-bg-input)', border: '1px solid var(--t-border-input)', color: 'var(--t-text-1)', fontFamily: 'var(--clt-font-body)', fontSize: 13, padding: '0 12px', outline: 'none', width: '100%', cursor: 'pointer', boxSizing: 'border-box', borderRadius: 0, ...s }}
-      onFocus={e => { (e.target as HTMLSelectElement).style.borderColor = 'rgba(104,116,181,0.6)' }}
-      onBlur={e => { (e.target as HTMLSelectElement).style.borderColor = 'var(--t-border-input)' }}
-    >
-      {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-    </select>
-  )
+  return <CustomSelect value={value} onChange={onChange} options={options} style={s} full />
 }
 
 // ── Donut ─────────────────────────────────────────────────────────────────────

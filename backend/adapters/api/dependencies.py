@@ -5,7 +5,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from application.use_cases import (
     ActivoUseCases, GrupoUseCases, SucursalUseCases,
-    AsignacionUseCases, MantenimientoUseCases,
+    AsignacionUseCases, MantenimientoUseCases, TenantUseCases,
 )
 from infrastructure.database.connection import get_pool
 from infrastructure.repositories import (
@@ -19,6 +19,8 @@ from infrastructure.repositories import (
     PostgreSQLAuditLogRepository,
     PostgreSQLUsuarioRepository,
     PostgreSQLDispositivoRepository,
+    PostgreSQLTenantSettingsRepository,
+    PostgreSQLTenantFeaturesRepository,
 )
 from infrastructure.external.qr_service import QRCodeService, LocalStorageAdapter
 from domain.entities import Usuario
@@ -33,7 +35,8 @@ async def get_current_user(
     try:
         payload = decode_token(credentials.credentials)
         return Usuario(
-            id=payload["user_id"], tenant_id=payload["tenant_id"],
+            id=payload["user_id"],
+            tenant_id=payload["tenant_id"],
             email=payload["email"], nombre_completo=payload.get("nombre", ""),
             rol=payload.get("rol", "operador"),
         )
@@ -95,5 +98,15 @@ async def get_mantenimiento_uc() -> MantenimientoUseCases:
     return MantenimientoUseCases(
         mnt_repo=PostgreSQLMantenimientoRepository(pool),
         activo_repo=PostgreSQLActivoRepository(pool),
+        audit_repo=PostgreSQLAuditLogRepository(pool),
+    )
+
+
+async def get_tenant_uc() -> TenantUseCases:
+    pool = await get_pool()
+    return TenantUseCases(
+        settings_repo=PostgreSQLTenantSettingsRepository(pool),
+        features_repo=PostgreSQLTenantFeaturesRepository(pool),
+        usuario_repo=PostgreSQLUsuarioRepository(pool),
         audit_repo=PostgreSQLAuditLogRepository(pool),
     )

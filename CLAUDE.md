@@ -43,8 +43,12 @@ Zebra/Honeywell.
 
 ```
 backend/     FastAPI 0.111 + Python 3.12 + asyncpg 0.29
-database/    PostgreSQL 15 (Docker)
+database/    PostgreSQL 15 (preferido) / Oracle (alternativo — confirmar con TI banco)
 frontend/    Next.js 14 App Router + TypeScript + Tailwind CSS 3.4
+mobile/      Flutter 3.x — iOS y Android nativos (POC en PWA)
+infra/       Docker (local) → Kubernetes on-premise (QA y Producción — banco ya tiene k8s)
+ci_cd/       Azure DevOps (pipeline existente en el banco)
+dispositivos/ Brother P950NW via SDK b-PAC / TCP 9100 (impresora etiquetas QR)
 ```
 
 ## Datos de seed

@@ -8,6 +8,7 @@ from .sucursal_repository import PostgreSQLSucursalRepository
 from .rubro_contable_repository import PostgreSQLRubroContableRepository
 from .usuario_repository import PostgreSQLUsuarioRepository
 from .dispositivo_repository import PostgreSQLDispositivoRepository
+from .tenant_repository import PostgreSQLTenantSettingsRepository, PostgreSQLTenantFeaturesRepository
 
 __all__ = [
     "PostgreSQLActivoRepository", "PostgreSQLAsignacionRepository",
@@ -15,4 +16,5 @@ __all__ = [
     "PostgreSQLGrupoRepository", "PostgreSQLClaseRepository",
     "PostgreSQLSucursalRepository", "PostgreSQLRubroContableRepository",
     "PostgreSQLUsuarioRepository", "PostgreSQLDispositivoRepository",
+    "PostgreSQLTenantSettingsRepository", "PostgreSQLTenantFeaturesRepository",
 ]
